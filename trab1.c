@@ -1,29 +1,31 @@
+#include <ctype.h>
+#include <locale.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <locale.h>
-#include <ctype.h>
 
 /**
  * EDITOR DE IMAGENS PPM
  * 
- * CÃ³digos de erro:
- *  1 ParÃ¢metros incorretos
+ * Códigos de erro:
+ *  1 Parâmetros incorretos
  *  2 Erro ao abrir arquivo
- *  3 Formato de arquivo invÃ¡lido
- *  4 DimensÃµes invÃ¡lidas
+ *  3 Formato de arquivo inválido
+ *  4 Dimensões inválidas
  *  5 Falha ao alocar Imagem (struct)
  *  6 Falha ao alocar string
- * 
+ *  7 Falha ao alocar matriz (linhas)
+ *  8 Falha ao alocar matriz (colunas)
   */
 
 /* estrutura de um arquivo */
 typedef struct img {
-    FILE* arquivo;
-    char* nome;
-    int alt;
-    int larg;
+    FILE *arquivo;
+    char *nome;
+    unsigned int alt;
+    unsigned int larg;
+    unsigned int prof_cor;
 } Imagem;
 /* estrutura de um pixel */
 typedef struct pxl {
@@ -32,68 +34,93 @@ typedef struct pxl {
     int b;
 } Pixel;
 
-/*declaraÃ§Ãµes das funÃ§Ãµes secundÃ¡rias*/
-char* cria_string(char* palavra);
+/*declarações das funções secundárias*/
+void erro_param(char *nome);
 
-/* funÃ§Ã£o main */
-int main( int argc, char *argv[]){
-    setlocale (LC_ALL, "portuguese"); /*Define a codificaÃ§Ã£o*/
-    
+char *cria_string(char *palavra);
+
+void erro_pixels();
+
+/* função main */
+int main(int argc, char *argv[]) {
+    setlocale(LC_ALL, "portuguese"); /*Define a codificação*/
+
     /* testa os argumentos */
-    bool erro_param = false; /* nÃ£o informou nenhum parÃ¢metro */
     if (argc == 1)
-        erro_param=true;
-    if (*argv[1] == '-' || *argv[1] == '\\') /* verifica se o primeiro parÃ¢metro pode ser arquivo */
-        erro_param=true;
-
-    if (erro_param){
-        /* verifica se o primeiro argumento Ã© um parÃ¢metro (inicia com - ou \) */
-		printf("Use %s [SAÃDA] [OPÃ‡Ã•ES]\n", argv[0]);
-        printf("O primeiro argumento deve ser o nome arquivo de saÃ­da\n\n");
-        
-		printf("As opÃ§Ãµes podem ser:\n");
-		exit(1);
-	}
+        erro_param(argv[0]);
+    if (*argv[1] == '-' || *argv[1] == '\\') /* verifica se o primeiro parâmetro pode ser arquivo */
+        erro_param(argv[0]);
 
     /* abre o arquivo */
-    Imagem* imagem;
+    Imagem *imagem;
     imagem = malloc(sizeof(Imagem));
-    if (imagem == NULL){
-        printf("MemÃ³ria insuficiente!\n\tLibere mais memÃ³ria e tente novamente.\n", argv[1]);
+    if (imagem == NULL) {
+        printf("Memória insuficiente!\n\tLibere mais memória e tente novamente.\n");
         exit(5);
     }
     imagem->arquivo = fopen(argv[1], "r+");
-    if (imagem->arquivo == NULL){
+    if (imagem->arquivo == NULL) {
         printf("Falha ao abrir o arquivo %s", argv[1]);
         exit(2);
     }
-    imagem->nome=cria_string(argv[1]); /* salva o nome do arquivo */
-    /* verifica se Ã© um arquivo vÃ¡lido */
+    imagem->nome = cria_string(argv[1]); /* salva o nome do arquivo */
+    /* verifica se é um arquivo válido */
     bool arq_valido = true;
     char tipo[5];
     fgets(tipo, 5, imagem->arquivo);
-    if (strlen(tipo) != 3 || (char)tipo[0] != 'P' || isdigit(tipo[1]) )
+    if (strlen(tipo) != 3 || tipo[0] != 'P' || !isdigit(tipo[1]))
         arq_valido = false;
-    if (!arq_valido){
-        printf("Formato de arquivo invÃ¡lido\n");
-        printf("Tipo: %c%c\t(%d)\n\n", (char)tipo[0],(char)tipo[1], strlen(tipo));
+    if (!arq_valido) {
+        printf("Formato de arquivo inválido\n");
+        printf("Tipo: %c%c\t(%d)\n\n", tipo[0], tipo[1],
+               strlen(tipo));
         exit(3);
     }
-    printf("CabeÃ§alho do arquivo %s lido com sucesso",imagem->nome);
+    /* lê o restante do cabeçalho */
+    fscanf(imagem->arquivo, "%d%d%d", &imagem->larg, &imagem->alt, &imagem->prof_cor); // NOLINT
 
-    //TODO testa as dimensÃµes exit(4)
+    /* aloca o espaço para os pixels */
+    Pixel **pixels = malloc(sizeof(Pixel *) * imagem->alt);
+    if (pixels == NULL) {
+        erro_pixels();
+        exit(7);
+    }
+    for (int i = 0; i < imagem->alt; i++) {
+        pixels[i] = malloc(sizeof(Pixel) * imagem->larg);
+        if (pixels[i] == NULL) {
+            erro_pixels();
+            exit(8);
+        }
+    }
+    for (int i = 0; i < imagem->alt; i++)
+        for (int j = 0; j < imagem->larg; j++)
+            fscanf(imagem->arquivo, "%d%d%d", &pixels[i][j].r, &pixels[i][j].g, &pixels[i][j].b); // NOLINT
+    printf("Arquivo %s carregado com sucesso\n", imagem->nome);
 
     return 0;
 }
 
+/* informa do erro ao alocar os pixels e encerra o programa */
+void erro_pixels() {
+    printf("Erro ao alocar espaço para carregar imagem\nLibere mais memória e tente novamente.\n");
+}
 
-/*copia uma string para um novo endereÃ§o de memÃ³ria dinamicamente alocado*/
-char* cria_string(char* palavra){
-    char* string = malloc(sizeof(char)*strlen(palavra));
-    if (string==NULL){
-        printf("MemÃ³ria insuficiente!\n\tLibere mais memÃ³ria e tente novamente.\n");
+/* imprime instruções e encerra o programa com código 1 */
+void erro_param(char *nome) {
+    printf("Use %s [SAÍDA] [OPÇÕES]\n", nome);
+    printf("O primeiro argumento deve ser o nome arquivo de saída\n\n");
+    printf("As opções podem ser:\n");
+    exit(1);
+}
+
+/*copia uma string para um novo endereço de memória dinamicamente alocado*/
+char *cria_string(char *palavra) {
+    char *string = malloc(sizeof(char) * strlen(palavra));
+    if (string == NULL) {
+        printf("Memória insuficiente!\n\tLibere mais memória e tente "
+                       "novamente.\n");
         exit(6);
     }
-    strcpy(string,palavra);
+    strcpy(string, palavra);
     return string;
 }
