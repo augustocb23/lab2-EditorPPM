@@ -21,6 +21,7 @@
  * OPÇÕES
  *  -o [ARQUIVO]    arquivo de saída
  *  -n              Filtro negativar
+ *  -b [BRILHO]     define o brilho da imagem
  *  -e              Espelhar imagem (inverter horizontalmente)
  *  -v              Virar imagem (inverter verticalmente)
   */
@@ -59,17 +60,16 @@ void filtro_espelhar(Imagem *imagem);
 
 void filtro_virar(Imagem *imagem);
 
+void filtro_brilho(Imagem *imagem, float brilho);
+
 /* função main */
 int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "portuguese"); /*Define a codificação*/
 
     /* booleanos dos filtros */
     bool filtros = false;
-    bool o = false;
-    bool n = false;
-    bool e = false;
-    bool v = false;
-
+    bool o = false, n = false, e = false, v = false, b = false;
+    int brilho = 0;
     char *arq_saida = NULL;
     int i, j;
 
@@ -103,6 +103,17 @@ int main(int argc, char *argv[]) {
                     break;
                 case 'v':
                     v = true;
+                    filtros++;
+                    break;
+                case 'b':
+                    /* verifica se a porcentagem foi definida */
+                    if (argc == i + 1 || testa_param(argv[i + 1])) {
+                        printf("Porcentagem do brilho não definida ou inválida!\n");
+                        erro_param();
+                    }
+                    brilho = atoi(argv[i + 1]); /* NOLINT*/
+                    i++; /* pula o próximo argumento (a porcentagem) */
+                    b = true;
                     filtros++;
                     break;
                 default:
@@ -163,6 +174,8 @@ int main(int argc, char *argv[]) {
 
     if (n) /* filtro negativo */
         filtro_negativo(imagem);
+    if (b) /* brilho */
+        filtro_brilho(imagem, brilho);
     if (e) /* espelhar */
         filtro_espelhar(imagem);
     if (v) /* virar */
@@ -182,7 +195,6 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-
 /** FILTROS
  *  recebem um ponteiro para uma imagem e aplicam um filtro sobre ela */
 void filtro_negativo(Imagem *imagem) {
@@ -193,6 +205,25 @@ void filtro_negativo(Imagem *imagem) {
             imagem->pixels[i][j].r = imagem->prof_cor - imagem->pixels[i][j].r;
             imagem->pixels[i][j].g = imagem->prof_cor - imagem->pixels[i][j].g;
             imagem->pixels[i][j].b = imagem->prof_cor - imagem->pixels[i][j].b;
+        }
+}
+
+
+void filtro_brilho(Imagem *imagem, float brilho) {
+    printf("Aplicando %3.f%% brilho...\n", brilho);
+    float fat = brilho / 100;
+    int i, j;
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++) {
+            imagem->pixels[i][j].r *= fat;
+            if (imagem->pixels[i][j].r > imagem->prof_cor)
+                imagem->pixels[i][j].r = imagem->prof_cor;
+            imagem->pixels[i][j].g *= fat;
+            if (imagem->pixels[i][j].g > imagem->prof_cor)
+                imagem->pixels[i][j].g = imagem->prof_cor;
+            imagem->pixels[i][j].b *= fat;
+            if (imagem->pixels[i][j].b > imagem->prof_cor)
+                imagem->pixels[i][j].b = imagem->prof_cor;
         }
 }
 
@@ -273,9 +304,10 @@ void erro_param() {
     printf("O primeiro argumento deve ser o nome arquivo\n\n");
     printf("As opções podem ser:\n");
     printf("\t-o ARQUIVO\t Informe o nome do arquivo para salvar\n");
-    printf("\t-n\t\t Filtro Negativo\n");
-    printf("\t-e\t\t Espelhar (inverter horizontalmente)\n");
-    printf("\t-v\t\t Virar    (inverter verticalmente)\n");
+    printf("\t-n\t\tFiltro Negativo\n");
+    printf("\t-b BRILHO\tBrilho   (em porcentagem)\n");
+    printf("\t-e\t\tEspelhar (inverter horizontalmente)\n");
+    printf("\t-v\t\tVirar    (inverter verticalmente)\n");
     exit(1);
 }
 
