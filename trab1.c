@@ -17,6 +17,7 @@
  *  6 Falha ao alocar string
  *  7 Falha ao alocar matriz (linhas)
  *  8 Falha ao alocar matriz (colunas)
+ *  9 Erro ao salvar o arquivo
  *
  * OPÇÕES
  *  -o [ARQUIVO]    arquivo de saída
@@ -62,6 +63,10 @@ void filtro_virar(Imagem *imagem);
 
 void filtro_brilho(Imagem *imagem, float brilho);
 
+Imagem *imagem_carrega(char *caminho);
+
+void imagem_salva(Imagem *imagem, const char *arq_saida);
+
 /* função main */
 int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "portuguese"); /*Define a codificação*/
@@ -71,12 +76,12 @@ int main(int argc, char *argv[]) {
     bool o = false, n = false, e = false, v = false, b = false;
     int brilho = 0;
     char *arq_saida = NULL;
-    int i, j;
+    int i;
 
     /* testa os argumentos */
     if (argc < 3)
         erro_param();
-    if (testa_param(argv[1])) /* verifica se o primeiro parâmetro pode ser arquivo */
+    if (testa_param(argv[1])) /* verifica se o primeiro parâmetro pode ser um arquivo */
         erro_param();
 
     /* verifica os parâmetros, começando pelo segundo */
@@ -117,59 +122,26 @@ int main(int argc, char *argv[]) {
                     filtros++;
                     break;
                 default:
+                opcao_invalida:
                     printf("Opção inválida: %s\n", argv[i]);
                     erro_param();
                     break;
             }
+        else /* executa o default do switch acima */
+            goto opcao_invalida;
     }
     if (!filtros) {
         printf("Defina ao menos um filtro para aplicar na imagem!\n");
         erro_param();
     }
 
-    /* abre o arquivo */
-    Imagem *imagem;
-    imagem = malloc(sizeof(Imagem));
-    if (imagem == NULL) {
-        printf("Memória insuficiente!\n\tLibere mais memória e tente novamente.\n");
-        exit(5);
-    }
-    imagem->arquivo = fopen(argv[1], "r");
-    if (imagem->arquivo == NULL) {
-        printf("Falha ao abrir o arquivo %s", argv[1]);
-        exit(2);
-    }
-    imagem->nome = cria_string(argv[1]); /* salva o nome do arquivo */
-    /* verifica se é um arquivo válido */
-    bool arq_valido = true;
-    char tipo[5];
-    fgets(tipo, 5, imagem->arquivo);
-    if (strlen(tipo) != 3 || tipo[0] != 'P' || !isdigit(tipo[1]))
-        arq_valido = false;
-    if (arq_valido) {
-        imagem->tipo = tipo[1];
-    } else {
-        printf("Formato de arquivo inválido\n");
-        printf("Tipo: %c%c\t(%d)\n\n", tipo[0], tipo[1], strlen(tipo));
-        exit(3);
-    }
-    /* lê o restante do cabeçalho */
-    fscanf(imagem->arquivo, "%d%d%d", &imagem->larg, &imagem->alt, &imagem->prof_cor); /* NOLINT*/
-
-    /* aloca e faz a leitura dos pixels */
-    imagem->pixels = pixels_aloca(imagem->larg, imagem->alt);
-    for (i = 0; i < imagem->alt; i++)
-        for (j = 0; j < imagem->larg; j++)
-            fscanf(imagem->arquivo, "%d%d%d", &imagem->pixels[i][j].r, &imagem->pixels[i][j].g, /*NOLINT*/
-                   &imagem->pixels[i][j].b);
-    printf("Arquivo %s carregado com sucesso\n", imagem->nome);
-    fclose(imagem->arquivo);
-
+    /* abre o arquivo e define o arquivo de saída */
+    Imagem *imagem = imagem_carrega(argv[1]);
     if (o)
         printf("O arquivo de saída está definido como %s\n\n", arq_saida);
     else {
         printf("Arquivo de saída não definido. A imagem será sobre-escrita\n\n");
-        arq_saida = argv[1];
+        arq_saida = imagem->nome;
     }
 
     if (n) /* filtro negativo */
@@ -182,7 +154,61 @@ int main(int argc, char *argv[]) {
         filtro_virar(imagem);
 
     /* salva o arquivo */
+    imagem_salva(imagem, arq_saida);
+    return 0;
+}
+
+/** MANIPULAÇÃO DO ARQUIVO */
+/* recebe um caminho, abre, testa o cabeçalho e faz a leitura dos pixels */
+Imagem *imagem_carrega(char *caminho) {
+    Imagem *imagem;
+    int i, j;
+    imagem = malloc(sizeof(Imagem));
+    if (imagem == NULL) {
+        printf("Memória insuficiente!\n\tLibere mais memória e tente novamente.\n");
+        exit(5);
+    }
+    imagem->arquivo = fopen(caminho, "r");
+    if (imagem->arquivo == NULL) {
+        printf("Falha ao abrir o arquivo %s", caminho);
+        exit(2);
+    }
+    imagem->nome = cria_string(caminho); /* salva o nome do arquivo */
+    /* verifica se é um arquivo válido */
+    bool arq_valido;
+    char tipo[5];
+    fgets(tipo, 5, imagem->arquivo);
+    arq_valido = !(strlen(tipo) != 3 || tipo[0] != 'P' || !isdigit(tipo[1]));
+    if (arq_valido) {
+        imagem->tipo = tipo[1];
+    } else {
+        printf("Formato de arquivo inválido\n");
+        printf("Tipo: %c%c\t(%d)\n\n", tipo[0], tipo[1], strlen(tipo));
+        exit(3);
+    }
+    /* lê o restante do cabeçalho */
+    fscanf(imagem->arquivo, "%d%d%d", &imagem->larg, &imagem->alt, &imagem->prof_cor); /* NOLINT */
+
+    /* aloca e faz a leitura dos pixels */
+    imagem->pixels = pixels_aloca(imagem->larg, imagem->alt);
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++)
+            fscanf(imagem->arquivo, "%d%d%d", &imagem->pixels[i][j].r, &imagem->pixels[i][j].g, /*NOLINT */
+                   &imagem->pixels[i][j].b);
+    printf("Arquivo %s carregado com sucesso\n", imagem->nome);
+    fclose(imagem->arquivo);
+    return imagem;
+}
+
+/* recebe uma imagem e um caminho de saída para salvar */
+void imagem_salva(Imagem *imagem, const char *arq_saida) {
+    int i, j;
     imagem->arquivo = fopen(arq_saida, "w");
+    if (imagem->arquivo == NULL) {
+        printf("Erro ao salvar o arquivo\n"
+                       "Verifique se você tem as permissões necessárias");
+        exit(9);
+    }
     fprintf(imagem->arquivo, "P%c\n", imagem->tipo);
     fprintf(imagem->arquivo, "%d %d\n", imagem->larg, imagem->alt);
     fprintf(imagem->arquivo, "%d\n", imagem->prof_cor);
@@ -191,8 +217,12 @@ int main(int argc, char *argv[]) {
             fprintf(imagem->arquivo, "%d %d %d\n", imagem->pixels[i][j].r, imagem->pixels[i][j].g,
                     imagem->pixels[i][j].b);
         }
+    /* fecha o arquivo e libera a memória alocada */
     fclose(imagem->arquivo);
-    return 0;
+    pixels_apaga(imagem->pixels, imagem);
+    free(imagem->nome);
+    free(imagem);
+    printf("Arquivo salvo\n");
 }
 
 /** FILTROS
@@ -207,7 +237,6 @@ void filtro_negativo(Imagem *imagem) {
             imagem->pixels[i][j].b = imagem->prof_cor - imagem->pixels[i][j].b;
         }
 }
-
 
 void filtro_brilho(Imagem *imagem, float brilho) {
     printf("Aplicando %3.f%% brilho...\n", brilho);
@@ -287,10 +316,7 @@ void pixels_apaga(Pixel **pixels, Imagem *imagem) {
 
 /* testa se o item é um parâmetro */
 bool testa_param(const char *arg) {
-    if (*arg == '-' || *arg == '\\' || *arg == '/' && strlen(arg) > 1)
-        return true;
-    else
-        return false;
+    return (*arg == '-' || *arg == '\\' || *arg == '/' && strlen(arg) > 1);
 }
 
 /* informa do erro ao alocar os pixels */
@@ -300,14 +326,14 @@ void erro_pixels() {
 
 /* imprime instruções e encerra o programa com código 1 */
 void erro_param() {
-    printf("Use [IMAGEM] [OPÇÕES]\n");
-    printf("O primeiro argumento deve ser o nome arquivo\n\n");
-    printf("As opções podem ser:\n");
-    printf("\t-o ARQUIVO\t Informe o nome do arquivo para salvar\n");
-    printf("\t-n\t\tFiltro Negativo\n");
-    printf("\t-b BRILHO\tBrilho   (em porcentagem)\n");
-    printf("\t-e\t\tEspelhar (inverter horizontalmente)\n");
-    printf("\t-v\t\tVirar    (inverter verticalmente)\n");
+    printf("Use [IMAGEM] [OPÇÕES]\n"
+                   "O primeiro argumento deve ser o nome do arquivo\n\n");
+    printf("As opções podem ser:\n"
+                   "\t-o ARQUIVO\tInformar o arquivo de saída\n"
+                   "\t-n\t\tFiltro Negativo\n"
+                   "\t-b BRILHO\tBrilho   (em porcentagem)\n"
+                   "\t-e\t\tEspelhar (inverter horizontalmente)\n"
+                   "\t-v\t\tVirar    (inverter verticalmente)\n");
     exit(1);
 }
 
@@ -315,8 +341,7 @@ void erro_param() {
 char *cria_string(char *palavra) {
     char *string = malloc(sizeof(char) * strlen(palavra));
     if (string == NULL) {
-        printf("Memória insuficiente!\n\tLibere mais memória e tente "
-                       "novamente.\n");
+        printf("Memória insuficiente!\n\tLibere mais memória e tente novamente.\n");
         exit(6);
     }
     strcpy(string, palavra);
