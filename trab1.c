@@ -25,6 +25,7 @@
  *  -b [BRILHO]     define o brilho da imagem
  *  -e              Espelhar imagem (inverter horizontalmente)
  *  -v              Virar imagem (inverter verticalmente)
+ *  -g [GRAUS]      Girar imagem (90, 180, 270, -90, -180, -270)
   */
 
 /* estrutura de um pixel */
@@ -44,28 +45,26 @@ typedef struct img {
     Pixel **pixels;
 } Imagem;
 
-/*declarações das funções secundárias*/
-void erro_param();
-char *cria_string(char *palavra);
-void erro_pixels();
-bool testa_param(const char *arg);
-
+/*<editor-fold desc="previous declarations">*/
+/* filtros */
 void filtro_negativo(Imagem *imagem);
-
-Pixel **pixels_aloca(unsigned int larg, unsigned int alt);
-
-/* recebe uma matriz de pixels e a exclui */
-void pixels_apaga(Pixel **pixels, Imagem *imagem);
-
 void filtro_espelhar(Imagem *imagem);
-
 void filtro_virar(Imagem *imagem);
-
 void filtro_brilho(Imagem *imagem, float brilho);
+void filtro_girar(Imagem *imagem, int graus);
 
+/* alocação e exclusão de matrizes */
+Pixel **pixels_aloca(unsigned int larg, unsigned int alt);
+void pixels_apaga(Pixel **pixels, Imagem *imagem);
+/* manipulação do tipo Imagem */
 Imagem *imagem_carrega(char *caminho);
-
 void imagem_salva(Imagem *imagem, const char *arq_saida);
+/*  funções secundárias */
+bool testa_param(const char *arg);
+void erro_param();
+void erro_pixels();
+char *cria_string(char *palavra);
+/*</editor-fold>*/
 
 /* função main */
 int main(int argc, char *argv[]) {
@@ -73,8 +72,8 @@ int main(int argc, char *argv[]) {
 
     /* booleanos dos filtros */
     bool filtros = false;
-    bool o = false, n = false, e = false, v = false, b = false;
-    int brilho = 0;
+    bool o = false, n = false, e = false, v = false, b = false, g = false;
+    int brilho = 0, graus = 0;
     char *arq_saida = NULL;
     int i;
 
@@ -121,6 +120,21 @@ int main(int argc, char *argv[]) {
                     b = true;
                     filtros++;
                     break;
+                case 'g':
+                    /* verifica se os graus foram definidos e são válidos */
+                    if (argc == i + 1 || testa_param(argv[i + 1])) {
+                        printf("Graus para rotacionar não definidos ou inválidos!\n");
+                        erro_param();
+                    }
+                    graus = atoi(argv[i + 1]); /* NOLINT */
+                    if (!(graus == 90 || graus == 180 || graus == 270)) {
+                        printf("Os graus devem ser 90, 180 ou 270!\n");
+                        erro_param();
+                    }
+                    i++; /* pula o próximo argumento (os graus) */
+                    g = true;
+                    filtros++;
+                    break;
                 default:
                 opcao_invalida:
                     printf("Opção inválida: %s\n", argv[i]);
@@ -152,7 +166,10 @@ int main(int argc, char *argv[]) {
         filtro_espelhar(imagem);
     if (v) /* virar */
         filtro_virar(imagem);
+    if (g) /* girar */
+        filtro_girar(imagem, graus);
 
+    printf("\n");
     /* salva o arquivo */
     imagem_salva(imagem, arq_saida);
     return 0;
@@ -202,11 +219,12 @@ Imagem *imagem_carrega(char *caminho) {
 
 /* recebe uma imagem e um caminho de saída para salvar */
 void imagem_salva(Imagem *imagem, const char *arq_saida) {
+    printf("Salvando arquivo %s... ", arq_saida);
     int i, j;
     imagem->arquivo = fopen(arq_saida, "w");
     if (imagem->arquivo == NULL) {
         printf("Erro ao salvar o arquivo\n"
-                       "Verifique se você tem as permissões necessárias");
+               "Verifique se você tem as permissões necessárias");
         exit(9);
     }
     fprintf(imagem->arquivo, "P%c\n", imagem->tipo);
@@ -222,7 +240,7 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
     pixels_apaga(imagem->pixels, imagem);
     free(imagem->nome);
     free(imagem);
-    printf("Arquivo salvo\n");
+    printf("salvo\n");
 }
 
 /** FILTROS
@@ -230,8 +248,8 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
 void filtro_negativo(Imagem *imagem) {
     printf("Aplicando filtro negativo...\n");
     int i, j;
-    for (i = 0; i < imagem->alt; i++)
-        for (j = 0; j < imagem->larg; j++) {
+    for (i = 0; i < imagem->alt - 1; i++)
+        for (j = 0; j < imagem->larg - 1; j++) {
             imagem->pixels[i][j].r = imagem->prof_cor - imagem->pixels[i][j].r;
             imagem->pixels[i][j].g = imagem->prof_cor - imagem->pixels[i][j].g;
             imagem->pixels[i][j].b = imagem->prof_cor - imagem->pixels[i][j].b;
@@ -242,8 +260,8 @@ void filtro_brilho(Imagem *imagem, float brilho) {
     printf("Aplicando %3.f%% brilho...\n", brilho);
     float fat = brilho / 100;
     int i, j;
-    for (i = 0; i < imagem->alt; i++)
-        for (j = 0; j < imagem->larg; j++) {
+    for (i = 0; i < imagem->alt - 1; i++)
+        for (j = 0; j < imagem->larg - 1; j++) {
             imagem->pixels[i][j].r *= fat;
             if (imagem->pixels[i][j].r > imagem->prof_cor)
                 imagem->pixels[i][j].r = imagem->prof_cor;
@@ -285,6 +303,31 @@ void filtro_virar(Imagem *imagem) {
     imagem->pixels = pont;
 }
 
+void filtro_girar(Imagem *imagem, int graus) {
+    int i, j;
+    printf("Girando imagem %d graus...\n", graus);
+    Pixel **pont = NULL;
+    if (graus == 180) {
+        /* girar 180 graus */
+        pont = pixels_aloca(imagem->larg, imagem->alt);
+        for (i = 0; i < imagem->alt; i++)
+            for (j = 0; j < imagem->larg; j++) {
+                pont[imagem->alt - i - 1][imagem->larg - j - 1].r = imagem->pixels[i][j].r;
+                pont[imagem->alt - i - 1][imagem->larg - j - 1].g = imagem->pixels[i][j].g;
+                pont[imagem->alt - i - 1][imagem->larg - j - 1].b = imagem->pixels[i][j].b;
+            }
+    } /*else {
+        pont = pixels_aloca(imagem->alt, imagem->larg);
+        if (graus == 90)
+            *//* TODO girar 90 graus *//*
+        else
+            *//* TODO girar 270 graus *//*
+    }*/
+
+    pixels_apaga(imagem->pixels, imagem);
+    imagem->pixels = pont;
+}
+
 /** FUNÇÕES SECUNDÁRIAS */
 /* recebe as dimensões e retorna uma matriz de pixels */
 Pixel **pixels_aloca(unsigned int larg, unsigned int alt) {
@@ -309,7 +352,7 @@ void pixels_apaga(Pixel **pixels, Imagem *imagem) {
     int i;
     if (pixels == NULL || imagem == NULL)
         return;
-    for (i = 0; i < imagem->larg; i++)
+    for (i = 0; i < imagem->alt - 1; i++)
         free(pixels[i]);
     free(pixels);
 }
@@ -326,14 +369,15 @@ void erro_pixels() {
 
 /* imprime instruções e encerra o programa com código 1 */
 void erro_param() {
-    printf("Use [IMAGEM] [OPÇÕES]\n"
-                   "O primeiro argumento deve ser o nome do arquivo\n\n");
+    printf("\nUse [IMAGEM] [OPÇÕES]\n"
+           "O primeiro argumento deve ser o nome do arquivo\n\n");
     printf("As opções podem ser:\n"
-                   "\t-o ARQUIVO\tInformar o arquivo de saída\n"
-                   "\t-n\t\tFiltro Negativo\n"
-                   "\t-b BRILHO\tBrilho   (em porcentagem)\n"
-                   "\t-e\t\tEspelhar (inverter horizontalmente)\n"
-                   "\t-v\t\tVirar    (inverter verticalmente)\n");
+           "\t-o ARQUIVO\tInformar o arquivo de saída\n"
+           "\t-n\t\tFiltro Negativo\n"
+           "\t-b BRILHO\tBrilho   (em porcentagem)\n"
+           "\t-e\t\tEspelhar (inverter horizontalmente)\n"
+           "\t-v\t\tVirar    (inverter verticalmente)\n"
+           "\t-g GRAUS\tGirar    (90, 180 ou 270 graus)\n");
     exit(1);
 }
 
