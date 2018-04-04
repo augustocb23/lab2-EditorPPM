@@ -304,26 +304,30 @@ void filtro_virar(Imagem *imagem) {
 }
 
 void filtro_girar(Imagem *imagem, int graus) {
-    int i, j;
     printf("Girando imagem %d graus...\n", graus);
     Pixel **pont = NULL;
+    int i, j;
     if (graus == 180) {
         /* girar 180 graus */
         pont = pixels_aloca(imagem->larg, imagem->alt);
         for (i = 0; i < imagem->alt; i++)
-            for (j = 0; j < imagem->larg; j++) {
-                pont[imagem->alt - i - 1][imagem->larg - j - 1].r = imagem->pixels[i][j].r;
-                pont[imagem->alt - i - 1][imagem->larg - j - 1].g = imagem->pixels[i][j].g;
-                pont[imagem->alt - i - 1][imagem->larg - j - 1].b = imagem->pixels[i][j].b;
-            }
-    } /*else {
+            for (j = 0; j < imagem->larg; j++)
+                pont[imagem->alt - i - 1][imagem->larg - j - 1] = imagem->pixels[i][j];
+    } else {
         pont = pixels_aloca(imagem->alt, imagem->larg);
-        if (graus == 90)
-            *//* TODO girar 90 graus *//*
-        else
-            *//* TODO girar 270 graus *//*
-    }*/
-
+        for (i = 0; i < imagem->larg; i++)
+            for (j = 0; j < imagem->alt; j++)
+                if (graus == 90)
+                    /* girar 90 graus */
+                    pont[i][imagem->alt - j - 1] = imagem->pixels[j][i];
+                else
+                    /*girar 270 graus */
+                    pont[imagem->larg - i - 1][j] = imagem->pixels[j][i];
+        /* redefine as dimensões da imagem */
+        unsigned int aux = imagem->larg;
+        imagem->larg = imagem->alt;
+        imagem->alt = aux;
+    }
     pixels_apaga(imagem->pixels, imagem);
     imagem->pixels = pont;
 }
