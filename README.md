@@ -11,7 +11,7 @@ Você deverá enviar o código C e um arquivo leiame.txt, que deverá conter uma
 OBS.: Seu código será testado em máquina com linux, utilizando compilador C padrão ANSI (gcc -ansi)
 OBS. 2: Seu código será verificado contra plágio. Em caso positivo, o mesmo será desqualificado e a nota zerada.
 
-- Data de entrega do código: 06/04/18, via e-mail para `candia@inf.ufsm.br`
+- Data de entrega do código: 14/04/18, via e-mail para `candia@inf.ufsm.br`
 - Número de participantes: **Individual**
 
 Ex.: Formato PPM (variante P3)

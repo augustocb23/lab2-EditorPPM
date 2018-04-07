@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /**
  * EDITOR DE IMAGENS PPM
@@ -27,6 +28,7 @@
  *  -e              Espelhar imagem (inverter horizontalmente)
  *  -v              Virar imagem (inverter verticalmente)
  *  -g [GRAUS]      Girar imagem (90, 180, 270, -90, -180, -270)
+ *  -d [APÓTEMA]    Distorcer a imagem (até metade do menor lado)
   */
 
 /* estrutura de um pixel */
@@ -53,6 +55,7 @@ void filtro_espelhar(Imagem *imagem);
 void filtro_virar(Imagem *imagem);
 void filtro_brilho(Imagem *imagem, float brilho);
 void filtro_girar(Imagem *imagem, int graus);
+void filtro_distorcer(Imagem *imagem, int apotema);
 
 /* alocação e exclusão de matrizes */
 Pixel **pixels_aloca(unsigned int larg, unsigned int alt);
@@ -65,16 +68,19 @@ bool testa_param(const char *arg);
 void erro_param();
 void erro_pixels();
 char *cria_string(char *palavra);
+int menor(int a, int b);
+int aleatorio_entre(int min, int max);
 /*</editor-fold>*/
 
 /* função main */
 int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "portuguese"); /*Define a codificação*/
+    srand((unsigned) time(NULL));
 
     /* booleanos dos filtros */
     bool filtros = false;
-    bool o = false, n = false, e = false, v = false, b = false, g = false;
-    int brilho = 0, graus = 0;
+    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false;
+    int brilho = 0, graus = 0, apotema = 0;
     char *arq_saida = NULL;
     int i;
 
@@ -143,6 +149,17 @@ int main(int argc, char *argv[]) {
                     g = true;
                     filtros++;
                     break;
+                case 'd':
+                    /* verifica se a apótema foi definida */
+                    if (argc == i + 1 || testa_param(argv[i + 1])) {
+                        printf("Apótema não definida ou inválida!\n");
+                        erro_param();
+                    }
+                    apotema = atoi(argv[i + 1]); /* NOLINT */
+                    i++; /* pula o próximo argumento (a apotema) */
+                    d = true;
+                    filtros++;
+                    break;
                 default:
                 opcao_invalida:
                     printf("Opção inválida: %s\n", argv[i]);
@@ -166,7 +183,16 @@ int main(int argc, char *argv[]) {
         arq_saida = imagem->nome;
     }
 
-    if (n) /* filtro negativo */
+    /* testa os parâmetros dos filtros */
+    if (d) { /* verifica se a apótema informada não é maior que a da imagem */
+        if (apotema > menor(imagem->alt, imagem->larg) / 2) {
+            printf("A apótema da área de distorção não pode ser maior que a da imagem!\n");
+            erro_param();
+        }
+    }
+
+    /* aplica os filtros */
+    if (n) /* negativo */
         filtro_negativo(imagem);
     if (b) /* brilho */
         filtro_brilho(imagem, brilho);
@@ -176,6 +202,8 @@ int main(int argc, char *argv[]) {
         filtro_virar(imagem);
     if (g) /* girar */
         filtro_girar(imagem, graus);
+    if (d) /* distorcer */
+        filtro_distorcer(imagem, apotema);
 
     printf("\n");
     /* salva o arquivo */
@@ -260,8 +288,8 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
 void filtro_negativo(Imagem *imagem) {
     printf("Aplicando filtro negativo...\n");
     int i, j;
-    for (i = 0; i < imagem->alt - 1; i++)
-        for (j = 0; j < imagem->larg - 1; j++) {
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++) {
             imagem->pixels[i][j].r = imagem->prof_cor - imagem->pixels[i][j].r;
             imagem->pixels[i][j].g = imagem->prof_cor - imagem->pixels[i][j].g;
             imagem->pixels[i][j].b = imagem->prof_cor - imagem->pixels[i][j].b;
@@ -352,6 +380,30 @@ void filtro_girar(Imagem *imagem, int graus) {
     imagem->pixels = pont;
 }
 
+void filtro_distorcer(Imagem *imagem, int apotema) {
+    printf("Aplicando distorção sobre uma área de %d pixels quadrados...", apotema * 2);
+    Pixel aux;
+    int i, j;
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; ++j) {
+            /* busca um pixel aleatório dentro da área */
+            int i_aleat = aleatorio_entre(i - apotema, i + apotema);
+            if (i_aleat < 0)
+                i_aleat = 0;
+            if (i_aleat > imagem->alt - 1)
+                i_aleat = imagem->alt - 1;
+            int j_aleat = aleatorio_entre(j - apotema, j + apotema);
+            if (j_aleat < 0)
+                j_aleat = 0;
+            if (j_aleat > imagem->larg - 1)
+                j_aleat = imagem->larg - 1;
+            /* troca com o pixel da iteração */
+            aux = imagem->pixels[i_aleat][j_aleat];
+            imagem->pixels[i_aleat][j_aleat] = imagem->pixels[i][j];
+            imagem->pixels[i][j] = aux;
+        }
+}
+
 /** FUNÇÕES SECUNDÁRIAS */
 /* recebe as dimensões e retorna uma matriz de pixels */
 Pixel **pixels_aloca(unsigned int larg, unsigned int alt) {
@@ -398,14 +450,15 @@ void erro_param() {
     printf("As opções podem ser:\n"
            "\t-o ARQUIVO\tInformar o arquivo de saída\n"
            "\t-n\t\tFiltro Negativo\n"
-           "\t-b BRILHO\tBrilho   (em porcentagem)\n"
-           "\t-e\t\tEspelhar (inverter horizontalmente)\n"
-           "\t-v\t\tVirar    (inverter verticalmente)\n"
-           "\t-g GRAUS\tGirar    (90, 180 ou 270 graus)\n");
+           "\t-b BRILHO\tBrilho    (em porcentagem)\n"
+           "\t-v\t\tVirar     (inverter verticalmente)\n"
+           "\t-e\t\tEspelhar  (inverter horizontalmente)\n"
+           "\t-g GRAUS\tGirar     (90, 180 ou 270 graus)\n"
+           "\t-d APÓTEMA\tDistorcer (apótema de distorção, em pixels)");
     exit(1);
 }
 
-/*copia uma string para um novo endereço de memória dinamicamente alocado*/
+/* copia uma string para um novo endereço de memória dinamicamente alocado */
 char *cria_string(char *palavra) {
     char *string = malloc(sizeof(char) * strlen(palavra));
     if (string == NULL) {
@@ -414,4 +467,16 @@ char *cria_string(char *palavra) {
     }
     strcpy(string, palavra);
     return string;
+}
+
+/* recebe dois valores e retorna o menor deles */
+int menor(int a, int b) {
+    if (a < b)
+        return a;
+    else
+        return b;
+}
+
+int aleatorio_entre(int min, int max) {
+    return rand() % (max - min) + min; /* NOLINT */
 }
