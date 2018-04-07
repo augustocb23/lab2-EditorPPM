@@ -217,9 +217,13 @@ Imagem *imagem_carrega(char *caminho) {
     /* aloca e faz a leitura dos pixels */
     imagem->pixels = pixels_aloca(imagem->larg, imagem->alt);
     for (i = 0; i < imagem->alt; i++)
-        for (j = 0; j < imagem->larg; j++)
-            fscanf(imagem->arquivo, "%d%d%d", &imagem->pixels[i][j].r, &imagem->pixels[i][j].g, /*NOLINT */
-                   &imagem->pixels[i][j].b);
+        for (j = 0; j < imagem->larg; j++) /* verifica se os 3 dados foram lidos (retorno da função) */
+            if (fscanf(imagem->arquivo, "%d%d%d", &imagem->pixels[i][j].r, &imagem->pixels[i][j].g, /*NOLINT */
+                       &imagem->pixels[i][j].b) != 3) {
+                printf("Formato de arquivo inválido\n"
+                       "O arquivo deve ser uma imagem PPM no formato ASCII\n\n");
+                exit(3);
+            }
     printf("Arquivo %s carregado com sucesso\n", imagem->nome);
     fclose(imagem->arquivo);
     return imagem;
