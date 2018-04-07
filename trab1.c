@@ -7,6 +7,7 @@
 
 /**
  * EDITOR DE IMAGENS PPM
+ * Codificação Western Windows 1252
  * 
  * Códigos de erro:
  *  1 Parâmetros incorretos
@@ -30,9 +31,9 @@
 
 /* estrutura de um pixel */
 typedef struct pxl {
-    unsigned int r;
-    unsigned int g;
-    unsigned int b;
+    int r;
+    int g;
+    int b;
 } Pixel;
 /* estrutura de um arquivo */
 typedef struct img {
@@ -41,7 +42,7 @@ typedef struct img {
     char tipo;
     unsigned int alt;
     unsigned int larg;
-    unsigned int prof_cor;
+    int prof_cor;
     Pixel **pixels;
 } Imagem;
 
@@ -112,10 +113,17 @@ int main(int argc, char *argv[]) {
                 case 'b':
                     /* verifica se a porcentagem foi definida */
                     if (argc == i + 1 || testa_param(argv[i + 1])) {
+                        if (argv[i + 1][0] == '-' && isdigit(argv[i + 1][1]))
+                            goto jump_brilho; /* testa se não é um valor negativo */
                         printf("Porcentagem do brilho não definida ou inválida!\n");
                         erro_param();
                     }
-                    brilho = atoi(argv[i + 1]); /* NOLINT*/
+                jump_brilho:
+                    brilho = atoi(argv[i + 1]); /* NOLINT */
+                    if (abs(brilho) > 100) {
+                        printf("Porcentagem deve estar entre -100 e 100!\n");
+                        erro_param();
+                    }
                     i++; /* pula o próximo argumento (a porcentagem) */
                     b = true;
                     filtros++;
@@ -258,19 +266,27 @@ void filtro_negativo(Imagem *imagem) {
 
 void filtro_brilho(Imagem *imagem, float brilho) {
     printf("Aplicando %3.f%% brilho...\n", brilho);
-    float fat = brilho / 100;
+    float fat = (brilho / 100) * imagem->prof_cor;
     int i, j;
-    for (i = 0; i < imagem->alt - 1; i++)
-        for (j = 0; j < imagem->larg - 1; j++) {
-            imagem->pixels[i][j].r *= fat;
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++) {
+            /* aplica o brilho em cada faixa de cor */
+            imagem->pixels[i][j].r += fat;
+            imagem->pixels[i][j].g += fat;
+            imagem->pixels[i][j].b += fat;
+            /* verifica se ultrapassou a profundidade de cor */
+            if (imagem->pixels[i][j].r < 0)
+                imagem->pixels[i][j].r = 0;
             if (imagem->pixels[i][j].r > imagem->prof_cor)
                 imagem->pixels[i][j].r = imagem->prof_cor;
-            imagem->pixels[i][j].g *= fat;
+            if (imagem->pixels[i][j].g < 0)
+                imagem->pixels[i][j].g = 0;
             if (imagem->pixels[i][j].g > imagem->prof_cor)
                 imagem->pixels[i][j].g = imagem->prof_cor;
-            imagem->pixels[i][j].b *= fat;
             if (imagem->pixels[i][j].b > imagem->prof_cor)
                 imagem->pixels[i][j].b = imagem->prof_cor;
+            if (imagem->pixels[i][j].b < 0)
+                imagem->pixels[i][j].b = 0;
         }
 }
 
