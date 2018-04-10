@@ -66,6 +66,7 @@ void imagem_salva(Imagem *imagem, const char *arq_saida);
 /*  funções secundárias */
 bool testa_param(const char *arg);
 void erro_param();
+void valida_cores(Imagem *imagem);
 void erro_pixels();
 char *cria_string(char *palavra);
 int menor(int a, int b);
@@ -307,18 +308,7 @@ void filtro_brilho(Imagem *imagem, float brilho) {
             imagem->pixels[i][j].g += fat;
             imagem->pixels[i][j].b += fat;
             /* verifica se ultrapassou a profundidade de cor */
-            if (imagem->pixels[i][j].r < 0)
-                imagem->pixels[i][j].r = 0;
-            if (imagem->pixels[i][j].r > imagem->prof_cor)
-                imagem->pixels[i][j].r = imagem->prof_cor;
-            if (imagem->pixels[i][j].g < 0)
-                imagem->pixels[i][j].g = 0;
-            if (imagem->pixels[i][j].g > imagem->prof_cor)
-                imagem->pixels[i][j].g = imagem->prof_cor;
-            if (imagem->pixels[i][j].b > imagem->prof_cor)
-                imagem->pixels[i][j].b = imagem->prof_cor;
-            if (imagem->pixels[i][j].b < 0)
-                imagem->pixels[i][j].b = 0;
+            valida_cores(imagem);
         }
 }
 
@@ -436,6 +426,26 @@ void pixels_apaga(Pixel **pixels, Imagem *imagem) {
 /* testa se o item é um parâmetro */
 bool testa_param(const char *arg) {
     return (*arg == '-' || *arg == '\\' || *arg == '/' && strlen(arg) > 1);
+}
+
+/* verifica se ultrapassou a profundidade de cor */
+void valida_cores(Imagem *imagem) {
+    int i, j;
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++) {
+            if (imagem->pixels[i][j].r < 0)
+                imagem->pixels[i][j].r = 0;
+            if (imagem->pixels[i][j].r > imagem->prof_cor)
+                imagem->pixels[i][j].r = imagem->prof_cor;
+            if (imagem->pixels[i][j].g < 0)
+                imagem->pixels[i][j].g = 0;
+            if (imagem->pixels[i][j].g > imagem->prof_cor)
+                imagem->pixels[i][j].g = imagem->prof_cor;
+            if (imagem->pixels[i][j].b > imagem->prof_cor)
+                imagem->pixels[i][j].b = imagem->prof_cor;
+            if (imagem->pixels[i][j].b < 0)
+                imagem->pixels[i][j].b = 0;
+        }
 }
 
 /* informa do erro ao alocar os pixels */
