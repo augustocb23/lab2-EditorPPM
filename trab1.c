@@ -51,9 +51,10 @@ typedef struct img {
 /*<editor-fold desc="previous declarations">*/
 /* filtros */
 void filtro_negativo(Imagem *imagem);
+void filtro_brilho(Imagem *imagem, float brilho);
+void filtro_cor(Imagem *imagem, Pixel cor);
 void filtro_espelhar(Imagem *imagem);
 void filtro_virar(Imagem *imagem);
-void filtro_brilho(Imagem *imagem, float brilho);
 void filtro_girar(Imagem *imagem, int graus);
 void filtro_distorcer(Imagem *imagem, int apotema);
 
@@ -66,7 +67,7 @@ void imagem_salva(Imagem *imagem, const char *arq_saida);
 /*  funções secundárias */
 bool testa_param(const char *arg);
 void erro_param();
-void valida_cores(Imagem *imagem);
+void valida_cores(Imagem *imagem, int i, int j);
 void erro_pixels();
 char *cria_string(char *palavra);
 int menor(int a, int b);
@@ -79,9 +80,10 @@ int main(int argc, char *argv[]) {
     srand((unsigned) time(NULL));
 
     /* booleanos dos filtros */
-    bool filtros = false;
-    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false;
+    bool filtros = false, cores = false;
+    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false, c = false;
     int brilho = 0, graus = 0, apotema = 0;
+    Pixel cor = {0, 0, 0};
     char *arq_saida = NULL;
     int i;
 
@@ -105,19 +107,19 @@ int main(int argc, char *argv[]) {
                     arq_saida = cria_string(argv[i + 1]);
                     i++; /* pula o próximo argumento (o nome do arquivo) */
                     break;
-                case 'n':
+                case 'n': /* negativo */
                     n = true;
                     filtros++;
                     break;
-                case 'e':
+                case 'e': /* espelhar */
                     e = true;
                     filtros++;
                     break;
-                case 'v':
+                case 'v': /* virar */
                     v = true;
                     filtros++;
                     break;
-                case 'b':
+                case 'b': /* brilho */
                     /* verifica se a porcentagem foi definida */
                     if (argc == i + 1 || testa_param(argv[i + 1])) {
                         if (argv[i + 1][0] == '-' && isdigit(argv[i + 1][1]))
@@ -135,7 +137,7 @@ int main(int argc, char *argv[]) {
                     b = true;
                     filtros++;
                     break;
-                case 'g':
+                case 'g': /* girar */
                     /* verifica se os graus foram definidos e são válidos */
                     if (argc == i + 1 || testa_param(argv[i + 1])) {
                         printf("Graus para rotacionar não definidos ou inválidos!\n");
@@ -150,7 +152,7 @@ int main(int argc, char *argv[]) {
                     g = true;
                     filtros++;
                     break;
-                case 'd':
+                case 'd': /* distorcer */
                     /* verifica se a apótema foi definida */
                     if (argc == i + 1 || testa_param(argv[i + 1])) {
                         printf("Apótema não definida ou inválida!\n");
@@ -159,6 +161,46 @@ int main(int argc, char *argv[]) {
                     apotema = atoi(argv[i + 1]); /* NOLINT */
                     i++; /* pula o próximo argumento (a apotema) */
                     d = true;
+                    filtros++;
+                    break;
+                case 'c': /* cores */
+                    /* verifica se os parâmetros de cores foram definidos */
+                    if (argc == i + 1) {
+                        printf("Nenhuma cor definida!\b");
+                        goto erro_cor; /* dentro do default do switch abaixo */
+                    }
+                    while (!testa_param(argv[i + 1])) {
+                        /* lê o primeiro caractere para identificar qual a cor */
+                        switch (argv[i + 1][0]) {
+                            case 'r':
+                                cor.r = atoi(&argv[i + 1][1]); /* NOLINT */
+                                cores++;
+                                break;
+                            case 'g':
+                                cor.g = atoi(&argv[i + 1][1]); /* NOLINT */
+                                cores++;
+                                break;
+                            case 'b':
+                                cor.b = atoi(&argv[i + 1][1]); /* NOLINT */
+                                cores++;
+                                break;
+                            default:
+                                printf("Cor inválida: %c\n", argv[i + 1][0]);
+                            erro_cor:
+                                printf("A cor é definida por r, g ou b seguida de um número\n"
+                                       "Os parâmetros representam vermelho, verde e azul, respectivamente\n"
+                                       "Pode-se definir apenas uma, duas ou as três cores\n");
+                                erro_param();
+                        }
+                        i++; /* avança pro próximo parâmetro */
+                        if (argc == i + 1) /* verifica se existem outros argumentos */
+                            break;
+                    }
+                    if (!cores) {
+                        printf("Pelo menos uma cor deve ser definida!\n");
+                        goto erro_cor; /* dentro do default do switch acima */
+                    }
+                    c = true;
                     filtros++;
                     break;
                 default:
@@ -191,12 +233,20 @@ int main(int argc, char *argv[]) {
             erro_param();
         }
     }
+    if (c) { /* verifica se nenhuma cor é maior que a profundidade de cores da imagem */
+        if (abs(cor.r) > imagem->prof_cor || abs(cor.g) > imagem->prof_cor || abs(cor.b) > imagem->prof_cor) {
+            printf("As cores definidas não podem ser maiores do que a escala de cores da imagem!\n");
+            erro_param();
+        }
+    }
 
     /* aplica os filtros */
     if (n) /* negativo */
         filtro_negativo(imagem);
     if (b) /* brilho */
         filtro_brilho(imagem, brilho);
+    if (c) /* cor */
+        filtro_cor(imagem, cor);
     if (e) /* espelhar */
         filtro_espelhar(imagem);
     if (v) /* virar */
@@ -308,7 +358,21 @@ void filtro_brilho(Imagem *imagem, float brilho) {
             imagem->pixels[i][j].g += fat;
             imagem->pixels[i][j].b += fat;
             /* verifica se ultrapassou a profundidade de cor */
-            valida_cores(imagem);
+            valida_cores(imagem, i, j);
+        }
+}
+
+void filtro_cor(Imagem *imagem, Pixel cor) {
+    printf("Aplicando filtro de cor RGB %d %d %d...\n", cor.r, cor.g, cor.b);
+    int i, j;
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++) {
+            /* incrementa as cores em cada pixel */
+            imagem->pixels[i][j].r += cor.r;
+            imagem->pixels[i][j].g += cor.g;
+            imagem->pixels[i][j].b += cor.b;
+            /* verifica se ultrapassou a profundidade de cor */
+            valida_cores(imagem, i, j);
         }
 }
 
@@ -429,23 +493,19 @@ bool testa_param(const char *arg) {
 }
 
 /* verifica se ultrapassou a profundidade de cor */
-void valida_cores(Imagem *imagem) {
-    int i, j;
-    for (i = 0; i < imagem->alt; i++)
-        for (j = 0; j < imagem->larg; j++) {
-            if (imagem->pixels[i][j].r < 0)
-                imagem->pixels[i][j].r = 0;
-            if (imagem->pixels[i][j].r > imagem->prof_cor)
-                imagem->pixels[i][j].r = imagem->prof_cor;
-            if (imagem->pixels[i][j].g < 0)
-                imagem->pixels[i][j].g = 0;
-            if (imagem->pixels[i][j].g > imagem->prof_cor)
-                imagem->pixels[i][j].g = imagem->prof_cor;
-            if (imagem->pixels[i][j].b > imagem->prof_cor)
-                imagem->pixels[i][j].b = imagem->prof_cor;
-            if (imagem->pixels[i][j].b < 0)
-                imagem->pixels[i][j].b = 0;
-        }
+void valida_cores(Imagem *imagem, int i, int j) {
+    if (imagem->pixels[i][j].r < 0)
+        imagem->pixels[i][j].r = 0;
+    if (imagem->pixels[i][j].r > imagem->prof_cor)
+        imagem->pixels[i][j].r = imagem->prof_cor;
+    if (imagem->pixels[i][j].g < 0)
+        imagem->pixels[i][j].g = 0;
+    if (imagem->pixels[i][j].g > imagem->prof_cor)
+        imagem->pixels[i][j].g = imagem->prof_cor;
+    if (imagem->pixels[i][j].b > imagem->prof_cor)
+        imagem->pixels[i][j].b = imagem->prof_cor;
+    if (imagem->pixels[i][j].b < 0)
+        imagem->pixels[i][j].b = 0;
 }
 
 /* informa do erro ao alocar os pixels */
