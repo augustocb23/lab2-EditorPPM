@@ -25,6 +25,7 @@
  *  -o [ARQUIVO]    arquivo de saída
  *  -n              Filtro negativar
  *  -b [BRILHO]     define o brilho da imagem
+ *  -t [CONTRASTE]  define o contraste da imagem
  *  -e              Espelhar imagem (inverter horizontalmente)
  *  -v              Virar imagem (inverter verticalmente)
  *  -g [GRAUS]      Girar imagem (90, 180, 270, -90, -180, -270)
@@ -54,6 +55,7 @@ typedef struct img {
 /* filtros */
 void filtro_negativo(Imagem *imagem);
 void filtro_brilho(Imagem *imagem, float brilho);
+void filtro_contraste(Imagem *imagem, float contraste);
 void filtro_cor(Imagem *imagem, Pixel cor);
 void filtro_espelhar(Imagem *imagem);
 void filtro_virar(Imagem *imagem);
@@ -83,8 +85,8 @@ int main(int argc, char *argv[]) {
 
     /* booleanos dos filtros */
     bool filtros = false, cores = false;
-    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false, c = false;
-    int brilho = 0, graus = 0, apotema = 0;
+    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false, c = false, t = false;
+    int brilho = 0, graus = 0, apotema = 0, contraste = 0;
     Pixel cor = {0, 0, 0};
     char *arq_saida = NULL;
     int i;
@@ -205,6 +207,24 @@ int main(int argc, char *argv[]) {
                     c = true;
                     filtros++;
                     break;
+                case 't':
+                    /* verifica se a porcentagem foi definida */
+                    if (argc == i + 1 || testa_param(argv[i + 1])) {
+                        if (argv[i + 1][0] == '-' && isdigit(argv[i + 1][1]))
+                            goto jump_contrast; /* testa se não é um valor negativo */
+                        printf("Porcentagem do contraste não definida ou inválida!\n");
+                        erro_param();
+                    }
+                jump_contrast:
+                    contraste = atoi(argv[i + 1]); /* NOLINT */
+                    if (abs(contraste) > 100) {
+                        printf("Porcentagem deve estar entre -100 e 100!\n");
+                        erro_param();
+                    }
+                    i++; /* pula o próximo argumento (a porcentagem) */
+                    t = true;
+                    filtros++;
+                    break;
                 default:
                 opcao_invalida:
                     printf("Opção inválida: %s\n", argv[i]);
@@ -247,6 +267,8 @@ int main(int argc, char *argv[]) {
         filtro_negativo(imagem);
     if (b) /* brilho */
         filtro_brilho(imagem, brilho);
+    if (t) /* contraste */
+        filtro_contraste(imagem, contraste);
     if (c) /* cor */
         filtro_cor(imagem, cor);
     if (e) /* espelhar */
@@ -354,7 +376,7 @@ void filtro_negativo(Imagem *imagem) {
 }
 
 void filtro_brilho(Imagem *imagem, float brilho) {
-    printf("Aplicando %3.f%% brilho...\n", brilho);
+    printf("Aplicando %3.f%% de brilho...\n", brilho);
     float fat = (brilho / 100) * imagem->prof_cor;
     int i, j;
     for (i = 0; i < imagem->alt; i++)
@@ -363,6 +385,21 @@ void filtro_brilho(Imagem *imagem, float brilho) {
             imagem->pixels[i][j].r += fat;
             imagem->pixels[i][j].g += fat;
             imagem->pixels[i][j].b += fat;
+            /* verifica se ultrapassou a profundidade de cor */
+            valida_cores(imagem, i, j);
+        }
+}
+
+void filtro_contraste(Imagem *imagem, float contraste) {
+    printf("Aplicando %3.f%% de contraste...\n", contraste);
+    float fat = (259 * (contraste + 255)) / (255 * (259 - contraste));
+    int i, j;
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++) {
+            /* aplica o contraste em cada faixa de cor */
+            imagem->pixels[i][j].r = (int) (fat * (imagem->pixels[i][j].r - 128) + 128);
+            imagem->pixels[i][j].g = (int) (fat * (imagem->pixels[i][j].g - 128) + 128);
+            imagem->pixels[i][j].b = (int) (fat * (imagem->pixels[i][j].b - 128) + 128);
             /* verifica se ultrapassou a profundidade de cor */
             valida_cores(imagem, i, j);
         }
