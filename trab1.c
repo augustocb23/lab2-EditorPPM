@@ -31,6 +31,7 @@
  *  -d [APÓTEMA]    Distorcer a imagem (até metade do menor lado)
   */
 
+/*<editor-fold desc="structs">*/
 /* estrutura de um pixel */
 typedef struct pxl {
     int r;
@@ -47,6 +48,7 @@ typedef struct img {
     int prof_cor;
     Pixel **pixels;
 } Imagem;
+/*</editor-fold>*/
 
 /*<editor-fold desc="previous declarations">*/
 /* filtros */
@@ -74,7 +76,7 @@ int menor(int a, int b);
 int aleatorio_entre(int min, int max);
 /*</editor-fold>*/
 
-/* função main */
+/** FUNÇÃO PRINCIPAL */
 int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "portuguese"); /*Define a codificação*/
     srand((unsigned) time(NULL));
@@ -263,6 +265,7 @@ int main(int argc, char *argv[]) {
 }
 
 /** MANIPULAÇÃO DO ARQUIVO */
+/*<editor-fold desc="file operations">*/
 /* recebe um caminho, abre, testa o cabeçalho e faz a leitura dos pixels */
 Imagem *imagem_carrega(char *caminho) {
     Imagem *imagem;
@@ -300,7 +303,7 @@ Imagem *imagem_carrega(char *caminho) {
             if (fscanf(imagem->arquivo, "%d%d%d", &imagem->pixels[i][j].r, &imagem->pixels[i][j].g, /*NOLINT */
                        &imagem->pixels[i][j].b) != 3) {
                 printf("Formato de arquivo inválido\n"
-                       "O arquivo deve ser uma imagem PPM no formato ASCII\n\n");
+                       "O arquivo deve ser uma imagem PPM 3 no formato ASCII\n\n");
                 exit(3);
             }
     printf("Arquivo %s carregado com sucesso\n", imagem->nome);
@@ -333,9 +336,12 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
     free(imagem);
     printf("salvo\n");
 }
+/*</editor-fold>*/
 
-/** FILTROS
- *  recebem um ponteiro para uma imagem e aplicam um filtro sobre ela */
+/** FILTROS */
+/*<editor-fold desc="filters">*/
+/* recebem um ponteiro para uma imagem e aplicam um filtro sobre ela */
+
 void filtro_negativo(Imagem *imagem) {
     printf("Aplicando filtro negativo...\n");
     int i, j;
@@ -457,8 +463,10 @@ void filtro_distorcer(Imagem *imagem, int apotema) {
             imagem->pixels[i][j] = aux;
         }
 }
+/*</editor-fold>*/
 
 /** FUNÇÕES SECUNDÁRIAS */
+/*<editor-fold desc="secondary functions">*/
 /* recebe as dimensões e retorna uma matriz de pixels */
 Pixel **pixels_aloca(unsigned int larg, unsigned int alt) {
     Pixel **pixels = malloc(sizeof(Pixel *) * alt);
@@ -550,3 +558,4 @@ int menor(int a, int b) {
 int aleatorio_entre(int min, int max) {
     return rand() % (max - min) + min; /* NOLINT */
 }
+/*</editor-fold>*/
