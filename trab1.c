@@ -566,6 +566,7 @@ void erro_param() {
            "\t-o ARQUIVO\tInformar o arquivo de saída\n"
            "\t-n\t\tFiltro Negativo\n"
            "\t-b BRILHO\tBrilho    (em porcentagem)\n"
+           "\t-t CONTRASTE\tContraste (em porcentagem)\n"
            "\t-v\t\tVirar     (inverter verticalmente)\n"
            "\t-e\t\tEspelhar  (inverter horizontalmente)\n"
            "\t-g GRAUS\tGirar     (90, 180 ou 270 graus)\n"
