@@ -23,12 +23,13 @@
  *
  * OPÇÕES
  *  -o [ARQUIVO]    arquivo de saída
+ *  -u [TAM] [POS]  área de recorte (tamanho e posição inicial)
  *  -n              Filtro negativar
  *  -b [BRILHO]     define o brilho da imagem
  *  -t [CONTRASTE]  define o contraste da imagem
  *  -e              Espelhar imagem (inverter horizontalmente)
  *  -v              Virar imagem (inverter verticalmente)
- *  -g [GRAUS]      Girar imagem (90, 180, 270, -90, -180, -270)
+ *  -g [GRAUS]      Girar imagem (90, 180, 270)
  *  -d [APÓTEMA]    Distorcer a imagem (até metade do menor lado)
   */
 
@@ -53,6 +54,7 @@ typedef struct img {
 
 /*<editor-fold desc="previous declarations">*/
 /* filtros */
+void filtro_corta(Imagem *imagem, unsigned int alt, unsigned int larg, int corte_i, int corte_j);
 void filtro_negativo(Imagem *imagem);
 void filtro_brilho(Imagem *imagem, float brilho);
 void filtro_contraste(Imagem *imagem, float contraste);
@@ -85,8 +87,10 @@ int main(int argc, char *argv[]) {
 
     /* booleanos dos filtros */
     bool filtros = false, cores = false;
-    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false, c = false, t = false;
-    int brilho = 0, graus = 0, apotema = 0, contraste = 0;
+    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false, c = false, t = false, u = false;
+    int brilho = 0, graus = 0, apotema = 0, contraste = 0, corte_i = 0, corte_j = 0;
+    unsigned int corte_larg = 0;
+    unsigned int corte_alt = 0;
     Pixel cor = {0, 0, 0};
     char *arq_saida = NULL;
     int i;
@@ -110,6 +114,34 @@ int main(int argc, char *argv[]) {
                     o = true;
                     arq_saida = cria_string(argv[i + 1]);
                     i++; /* pula o próximo argumento (o nome do arquivo) */
+                    break;
+                case 'u': /* corte */
+                    /* verifica se a área foi definida */
+                    if (argc == i + 1 || testa_param(argv[i + 1]) || argc == i + 2 || testa_param(argv[i + 2])) {
+                        printf("Área de recorte não definida ou inválida!\n");
+                        erro_param();
+                    }
+                    /* lê os dois valores */
+                    corte_alt = (unsigned int) atoi(argv[i + 1]); /* NOLINT */
+                    corte_larg = (unsigned int) atoi(argv[i + 2]); /* NOLINT */
+                    if (corte_alt < 1 || corte_larg < 1) {
+                        printf("A área deve ser maior que 0!\n");
+                        erro_param();
+                    }
+                    i += 2; /* pula os próximos argumentos (a área) */
+                    /* verifica se há mais argumentos para saber se foi informada uma posição de corte */
+                    if (argc != i + 1 && !testa_param(argv[i + 1]))
+                        if (argc != i + 2 && !testa_param(argv[i + 2])) {
+                            corte_i = atoi(argv[i + 1]); /* NOLINT */
+                            corte_j = atoi(argv[i + 2]); /* NOLINT */
+                            i += 2; /* pula os próximos argumentos (a posição) */
+                        } else {
+                            printf("Posição inicial de corte inválida: %s,%s\n", argv[i + 1], argv[i + 2]);
+                            printf("Informe X e Y, ex.: -u 130 125 25 0\n");
+                            erro_param();
+                        }
+                    u = true;
+                    filtros++;
                     break;
                 case 'n': /* negativo */
                     n = true;
@@ -249,6 +281,18 @@ int main(int argc, char *argv[]) {
     }
 
     /* testa os parâmetros dos filtros */
+    if (u) {
+        /*verifica se a área não é maior que a imagem */
+        if (corte_alt > imagem->alt || corte_larg > imagem->larg) {
+            printf("Área de recorte não pode ser maior que a imagem!\n");
+            erro_param();
+        }
+        /* verifica se a posição é válida */
+        if (corte_i > imagem->alt || corte_j > imagem->larg) {
+            printf("Posição de recorte não pode ser maior que as dimensões da imagem!\n");
+            erro_param();
+        }
+    }
     if (d) { /* verifica se a apótema informada não é maior que a da imagem */
         if (apotema > menor(imagem->alt, imagem->larg) / 2) {
             printf("A apótema da área de distorção não pode ser maior que a da imagem!\n");
@@ -263,14 +307,16 @@ int main(int argc, char *argv[]) {
     }
 
     /* aplica os filtros */
-    if (n) /* negativo */
-        filtro_negativo(imagem);
+    if (u)  /* recorta a imagem */
+        filtro_corta(imagem, corte_alt, corte_larg, corte_i, corte_j);
     if (b) /* brilho */
         filtro_brilho(imagem, brilho);
     if (t) /* contraste */
         filtro_contraste(imagem, contraste);
     if (c) /* cor */
         filtro_cor(imagem, cor);
+    if (n) /* negativo */
+        filtro_negativo(imagem);
     if (e) /* espelhar */
         filtro_espelhar(imagem);
     if (v) /* virar */
@@ -363,6 +409,24 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
 /** FILTROS */
 /*<editor-fold desc="filters">*/
 /* recebem um ponteiro para uma imagem e aplicam um filtro sobre ela */
+void filtro_corta(Imagem *imagem, unsigned int alt, unsigned int larg, int corte_i, int corte_j) {
+    printf("Recortando imagem no tamanho %dx%d, iniciando na posição %d,%d...\n", alt, larg, corte_i, corte_j);
+    /* copia o espaço a ser recortado para uma nova matriz */
+    int recorte_i, recorte_j, imagem_j;
+    Pixel **recorte = pixels_aloca(larg, alt);
+    for (recorte_i = 0; recorte_i < alt && corte_i < imagem->alt; recorte_i++, corte_i++) {
+        imagem_j = corte_j;
+        for (recorte_j = 0; recorte_j < larg && imagem_j < imagem->larg; recorte_j++, imagem_j++)
+            recorte[recorte_i][recorte_j] = imagem->pixels[corte_i][imagem_j];
+    }
+
+    /* apaga a matriz original */
+    pixels_apaga(imagem->pixels, imagem);
+    /* altera os parâmetros da imagem */
+    imagem->pixels = recorte;
+    imagem->alt = alt;
+    imagem->larg = larg;
+}
 
 void filtro_negativo(Imagem *imagem) {
     printf("Aplicando filtro negativo...\n");
@@ -564,6 +628,7 @@ void erro_param() {
            "O primeiro argumento deve ser o nome do arquivo\n\n");
     printf("As opções podem ser:\n"
            "\t-o ARQUIVO\tInformar o arquivo de saída\n"
+           "\t-u ALT LARG Y X\tRecortar  (posição inicial de corte, opcional)\n"
            "\t-n\t\tFiltro Negativo\n"
            "\t-b BRILHO\tBrilho    (em porcentagem)\n"
            "\t-t CONTRASTE\tContraste (em porcentagem)\n"
