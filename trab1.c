@@ -65,8 +65,8 @@ void filtro_girar(Imagem *imagem, int graus);
 void filtro_distorcer(Imagem *imagem, int apotema);
 
 /* alocação e exclusão de matrizes */
-Pixel **pixels_aloca(unsigned int larg, unsigned int alt);
-void pixels_apaga(Pixel **pixels, Imagem *imagem);
+Pixel **pixels_aloca(unsigned int alt, unsigned int larg);
+void pixels_apaga(Imagem *imagem);
 /* manipulação do tipo Imagem */
 Imagem *imagem_carrega(char *caminho);
 void imagem_salva(Imagem *imagem, const char *arq_saida);
@@ -80,6 +80,8 @@ int menor(int a, int b);
 int aleatorio_entre(int min, int max);
 /*</editor-fold>*/
 
+void convulacao(Imagem *imagem, int kernel[3][3], int divisor);
+
 /** FUNÇÃO PRINCIPAL */
 int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "portuguese"); /*Define a codificação*/
@@ -87,8 +89,8 @@ int main(int argc, char *argv[]) {
 
     /* booleanos dos filtros */
     bool filtros = false, cores = false;
-    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false, c = false, t = false, u = false;
-    int brilho = 0, graus = 0, apotema = 0, contraste = 0, corte_i = 0, corte_j = 0;
+    bool o = false, n = false, e = false, v = false, b = false, g = false, d = false, c = false, t = false, u = false, k = false;
+    int brilho = 0, graus = 0, apotema = 0, contraste = 0, corte_i = 0, corte_j = 0, kernel[3][3], divisor = 1;
     unsigned int corte_larg = 0;
     unsigned int corte_alt = 0;
     Pixel cor = {0, 0, 0};
@@ -195,6 +197,10 @@ int main(int argc, char *argv[]) {
                         erro_param();
                     }
                     apotema = atoi(argv[i + 1]); /* NOLINT */
+                    if (!apotema) {
+                        printf("Valor da apótema deve ser diferente de zero!\n");
+                        erro_param();
+                    }
                     i++; /* pula o próximo argumento (a apotema) */
                     d = true;
                     filtros++;
@@ -237,6 +243,40 @@ int main(int argc, char *argv[]) {
                         goto erro_cor; /* dentro do default do switch acima */
                     }
                     c = true;
+                    filtros++;
+                    break;
+                case 'k':
+                    /* verifica se o kernel foi definido */
+                    if (argc == i + 9) {
+                        printf("Núcleo de convulação não definido!\n");
+                        erro_param();
+                    }
+                    /* lê até encontrar o próximo parâmetro */
+                    int celulas_lidas = 0;
+                    while (true) {
+                        /* verifica se é um número negativo ou um parâmetro */
+                        if (argv[i + 1][0] == '-' && !isdigit(argv[i + 1][1]))
+                            break;
+                        if (argv[i + 1][0] == 'x') {
+                            printf("O divisor deve ser definido após o núcleo!\n");
+                            erro_param();
+                        }
+                        kernel[celulas_lidas / 3][celulas_lidas % 3] = atoi(argv[i + 1]); /* NOLINT */
+                        celulas_lidas++;
+                        i++; /* avança pro próximo parâmetro */
+                        if (argc == i + 1 || celulas_lidas == 9) /* verifica se existem outros argumentos */
+                            break;
+                    }
+                    if (celulas_lidas < 9) {
+                        printf("O núcleo deve ter 9 parâmetros!\n");
+                        erro_param();
+                    }
+                    if (argv[i + 1] != NULL)
+                        if (argv[i + 1][0] == 'x') {
+                            divisor = atoi(&argv[i + 1][1]); /* NOLINT */
+                            i++;
+                        }
+                    k = true;
                     filtros++;
                     break;
                 case 't':
@@ -307,6 +347,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* aplica os filtros */
+    if (k)
+        convulacao(imagem, kernel, divisor);
     if (u)  /* recorta a imagem */
         filtro_corta(imagem, corte_alt, corte_larg, corte_i, corte_j);
     if (b) /* brilho */
@@ -365,7 +407,7 @@ Imagem *imagem_carrega(char *caminho) {
     fscanf(imagem->arquivo, "%d%d%d", &imagem->larg, &imagem->alt, &imagem->prof_cor); /* NOLINT */
 
     /* aloca e faz a leitura dos pixels */
-    imagem->pixels = pixels_aloca(imagem->larg, imagem->alt);
+    imagem->pixels = pixels_aloca(imagem->alt, imagem->larg);
     for (i = 0; i < imagem->alt; i++)
         for (j = 0; j < imagem->larg; j++) /* verifica se os 3 dados foram lidos (retorno da função) */
             if (fscanf(imagem->arquivo, "%d%d%d", &imagem->pixels[i][j].r, &imagem->pixels[i][j].g, /*NOLINT */
@@ -399,7 +441,7 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
         }
     /* fecha o arquivo e libera a memória alocada */
     fclose(imagem->arquivo);
-    pixels_apaga(imagem->pixels, imagem);
+    pixels_apaga(imagem);
     free(imagem->nome);
     free(imagem);
     printf("salvo\n");
@@ -413,7 +455,7 @@ void filtro_corta(Imagem *imagem, unsigned int alt, unsigned int larg, int corte
     printf("Recortando imagem no tamanho %dx%d, iniciando na posição %d,%d...\n", alt, larg, corte_i, corte_j);
     /* copia o espaço a ser recortado para uma nova matriz */
     int recorte_i, recorte_j, imagem_j;
-    Pixel **recorte = pixels_aloca(larg, alt);
+    Pixel **recorte = pixels_aloca(alt, larg);
     for (recorte_i = 0; recorte_i < alt && corte_i < imagem->alt; recorte_i++, corte_i++) {
         imagem_j = corte_j;
         for (recorte_j = 0; recorte_j < larg && imagem_j < imagem->larg; recorte_j++, imagem_j++)
@@ -421,7 +463,7 @@ void filtro_corta(Imagem *imagem, unsigned int alt, unsigned int larg, int corte
     }
 
     /* apaga a matriz original */
-    pixels_apaga(imagem->pixels, imagem);
+    pixels_apaga(imagem);
     /* altera os parâmetros da imagem */
     imagem->pixels = recorte;
     imagem->alt = alt;
@@ -485,7 +527,7 @@ void filtro_cor(Imagem *imagem, Pixel cor) {
 
 void filtro_espelhar(Imagem *imagem) {
     printf("Espelhando imagem...\n");
-    Pixel **pont = pixels_aloca(imagem->larg, imagem->alt);
+    Pixel **pont = pixels_aloca(imagem->alt, imagem->larg);
     int i, j;
     for (i = 0; i < imagem->alt; i++) {
         int k = 0;
@@ -494,13 +536,13 @@ void filtro_espelhar(Imagem *imagem) {
             k++;
         }
     }
-    pixels_apaga(imagem->pixels, imagem);
+    pixels_apaga(imagem);
     imagem->pixels = pont;
 }
 
 void filtro_virar(Imagem *imagem) {
     printf("Virando imagem...\n");
-    Pixel **pont = pixels_aloca(imagem->larg, imagem->alt);
+    Pixel **pont = pixels_aloca(imagem->alt, imagem->larg);
     int i, j;
     int k = 0;
     for (i = imagem->alt - 1; i >= 0; i--) {
@@ -508,7 +550,7 @@ void filtro_virar(Imagem *imagem) {
             pont[k][j] = imagem->pixels[i][j];
         k++;
     }
-    pixels_apaga(imagem->pixels, imagem);
+    pixels_apaga(imagem);
     imagem->pixels = pont;
 }
 
@@ -518,12 +560,12 @@ void filtro_girar(Imagem *imagem, int graus) {
     int i, j;
     if (graus == 180) {
         /* girar 180 graus */
-        pont = pixels_aloca(imagem->larg, imagem->alt);
+        pont = pixels_aloca(imagem->alt, imagem->larg);
         for (i = 0; i < imagem->alt; i++)
             for (j = 0; j < imagem->larg; j++)
                 pont[imagem->alt - i - 1][imagem->larg - j - 1] = imagem->pixels[i][j];
     } else {
-        pont = pixels_aloca(imagem->alt, imagem->larg);
+        pont = pixels_aloca(imagem->larg, imagem->alt);
         for (i = 0; i < imagem->larg; i++)
             for (j = 0; j < imagem->alt; j++)
                 if (graus == 90)
@@ -537,7 +579,7 @@ void filtro_girar(Imagem *imagem, int graus) {
         imagem->larg = imagem->alt;
         imagem->alt = aux;
     }
-    pixels_apaga(imagem->pixels, imagem);
+    pixels_apaga(imagem);
     imagem->pixels = pont;
 }
 
@@ -564,12 +606,38 @@ void filtro_distorcer(Imagem *imagem, int apotema) {
             imagem->pixels[i][j] = aux;
         }
 }
+
+void convulacao(Imagem *imagem, int kernel[3][3], int divisor) {
+    printf("Aplicando convulação...");
+    int i, j, k, l;
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++) {
+            int soma_r = 0;
+            int soma_g = 0;
+            int soma_b = 0;
+            for (k = 0; k < 3; k++)
+                for (l = 0; l < 3; l++) {
+                    if (i == 0 || j == 0 || i == imagem->alt - 1 || j == imagem->larg - 1)
+                        continue;
+                    int fator_r = imagem->pixels[i][j].r * kernel[k][l];
+                    int fator_g = imagem->pixels[i][j].g * kernel[k][l];
+                    int fator_b = imagem->pixels[i][j].b * kernel[k][l];
+                    soma_r += fator_r;
+                    soma_g += fator_g;
+                    soma_b += fator_b;
+                }
+            imagem->pixels[i][j].r = (imagem->pixels[i][j].r + soma_r) / divisor;
+            imagem->pixels[i][j].g = (imagem->pixels[i][j].g + soma_g) / divisor;
+            imagem->pixels[i][j].b = (imagem->pixels[i][j].b + soma_b) / divisor;
+            valida_cores(imagem, i, j);
+        }
+}
 /*</editor-fold>*/
 
 /** FUNÇÕES SECUNDÁRIAS */
 /*<editor-fold desc="secondary functions">*/
 /* recebe as dimensões e retorna uma matriz de pixels */
-Pixel **pixels_aloca(unsigned int larg, unsigned int alt) {
+Pixel **pixels_aloca(unsigned int alt, unsigned int larg) {
     Pixel **pixels = malloc(sizeof(Pixel *) * alt);
     int i;
     if (pixels == NULL) {
@@ -587,13 +655,13 @@ Pixel **pixels_aloca(unsigned int larg, unsigned int alt) {
 }
 
 /* recebe uma matriz de pixels e a exclui */
-void pixels_apaga(Pixel **pixels, Imagem *imagem) {
+void pixels_apaga(Imagem *imagem) {
     int i;
-    if (pixels == NULL || imagem == NULL)
+    if (imagem == NULL || imagem->pixels == NULL)
         return;
     for (i = 0; i < imagem->alt - 1; i++)
-        free(pixels[i]);
-    free(pixels);
+        free(imagem->pixels[i]);
+    free(imagem->pixels);
 }
 
 /* testa se o item é um parâmetro */
@@ -635,7 +703,11 @@ void erro_param() {
            "\t-v\t\tVirar     (inverter verticalmente)\n"
            "\t-e\t\tEspelhar  (inverter horizontalmente)\n"
            "\t-g GRAUS\tGirar     (90, 180 ou 270 graus)\n"
-           "\t-d APÓTEMA\tDistorcer (apótema de distorção, em pixels)");
+           "\t-d APÓTEMA\tDistorcer (apótema de distorção, em pixels)\n");
+    printf("Convulação:\n"
+           "\tÉ possível aplicar um núcleo de convulação de 3x3\n"
+           "\tApós o parâmetro -k, informe os valores de cada célula\n"
+           "\tUse x[VALOR] para informar um divisor (opcional)\n");
     exit(1);
 }
 
