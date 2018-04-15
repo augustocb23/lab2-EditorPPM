@@ -24,13 +24,15 @@
  * OPÇÕES
  *  -o [ARQUIVO]    arquivo de saída
  *  -u [TAM] [POS]  área de recorte (tamanho e posição inicial)
- *  -n              Filtro negativar
+ *  -n              filtro negativar
+ *  -c [CORES]      altera um ou mais canal(is) de cor
  *  -b [BRILHO]     define o brilho da imagem
  *  -t [CONTRASTE]  define o contraste da imagem
- *  -e              Espelhar imagem (inverter horizontalmente)
- *  -v              Virar imagem (inverter verticalmente)
- *  -g [GRAUS]      Girar imagem (90, 180, 270)
- *  -d [APÓTEMA]    Distorcer a imagem (até metade do menor lado)
+ *  -e              espelhar imagem (inverter horizontalmente)
+ *  -v              virar imagem (inverter verticalmente)
+ *  -g [GRAUS]      girar imagem (90, 180, 270)
+ *  -d [APÓTEMA]    distorcer a imagem (até metade do menor lado)
+ *  -k [KERNEL]     convolução (kernel e x[VALOR] para divisor)
   */
 
 /*<editor-fold desc="structs">*/
@@ -44,7 +46,6 @@ typedef struct pxl {
 typedef struct img {
     FILE *arquivo;
     char *nome;
-    char tipo;
     unsigned int alt;
     unsigned int larg;
     int prof_cor;
@@ -63,6 +64,7 @@ void filtro_espelhar(Imagem *imagem);
 void filtro_virar(Imagem *imagem);
 void filtro_girar(Imagem *imagem, int graus);
 void filtro_distorcer(Imagem *imagem, int apotema);
+void convolucao(Imagem *imagem, int kernel[3][3], int divisor);
 
 /* alocação e exclusão de matrizes */
 Pixel **pixels_aloca(unsigned int alt, unsigned int larg);
@@ -80,7 +82,6 @@ int menor(int a, int b);
 int aleatorio_entre(int min, int max);
 /*</editor-fold>*/
 
-void convulacao(Imagem *imagem, int kernel[3][3], int divisor);
 
 /** FUNÇÃO PRINCIPAL */
 int main(int argc, char *argv[]) {
@@ -248,7 +249,7 @@ int main(int argc, char *argv[]) {
                 case 'k':
                     /* verifica se o kernel foi definido */
                     if (argc == i + 9) {
-                        printf("Núcleo de convulação não definido!\n");
+                        printf("Núcleo de convolução não definido!\n");
                         erro_param();
                     }
                     /* lê até encontrar o próximo parâmetro */
@@ -321,6 +322,12 @@ int main(int argc, char *argv[]) {
     }
 
     /* testa os parâmetros dos filtros */
+    if (k) { /* verifica se a imagem tem pelo menos 3x3 pixels */
+        if (menor(imagem->alt, imagem->larg) < 3) {
+            printf("A imagem precisa ter pelo no mínimo 3x3 pixels!\n");
+            erro_param();
+        }
+    }
     if (u) {
         /*verifica se a área não é maior que a imagem */
         if (corte_alt > imagem->alt || corte_larg > imagem->larg) {
@@ -347,31 +354,62 @@ int main(int argc, char *argv[]) {
     }
 
     /* aplica os filtros */
-    if (k)
-        convulacao(imagem, kernel, divisor);
-    if (u)  /* recorta a imagem */
+    if (u) {  /* recorta a imagem */
+        printf("Recortando imagem no tamanho %dx%d, iniciando na posição %d,%d...\n", corte_alt, corte_larg, corte_i,
+               corte_j);
         filtro_corta(imagem, corte_alt, corte_larg, corte_i, corte_j);
-    if (b) /* brilho */
+    }
+    if (b) { /* brilho */
+        printf("Aplicando %3d%% de brilho...\n", brilho);
         filtro_brilho(imagem, brilho);
-    if (t) /* contraste */
+    }
+    if (t) { /* contraste */
+        printf("Aplicando %3d%% de contraste...\n", contraste);
         filtro_contraste(imagem, contraste);
-    if (c) /* cor */
+    }
+    if (c) { /* cor */
+        printf("Aplicando filtro de cor RGB %d %d %d...\n", cor.r, cor.g, cor.b);
         filtro_cor(imagem, cor);
-    if (n) /* negativo */
+    }
+    if (n) { /* negativo */
+        printf("Aplicando filtro negativo...\n");
         filtro_negativo(imagem);
-    if (e) /* espelhar */
+    }
+    if (e) { /* espelhar */
+        printf("Espelhando imagem...\n");
         filtro_espelhar(imagem);
-    if (v) /* virar */
+    }
+    if (v) { /* virar */
+        printf("Virando imagem...\n");
         filtro_virar(imagem);
-    if (g) /* girar */
+    }
+    if (g) { /* girar */
+        printf("Girando imagem %d graus...\n", graus);
         filtro_girar(imagem, graus);
-    if (d) /* distorcer */
+    }
+    if (d) { /* distorcer */
+        printf("Aplicando distorção sobre uma área de %d pixels quadrados...\n", apotema * 2);
         filtro_distorcer(imagem, apotema);
+    }
+    if (k) { /* núcleo de convolução */
+        printf("\n");
+        printf("Aplicando convolução...\n"
+               "\t%2d %2d %2d\n"
+               "\t%2d %2d %2d\n"
+               "\t%2d %2d %2d\n"
+               "\t\t  /%2d\n",
+               kernel[0][0], kernel[0][1], kernel[0][2],
+               kernel[1][0], kernel[1][1], kernel[1][2],
+               kernel[2][0], kernel[2][1], kernel[2][2],
+               divisor);
+        convolucao(imagem, kernel, divisor);
+    }
 
     printf("\n");
     /* salva o arquivo */
     imagem_salva(imagem, arq_saida);
-    return 0;
+    printf("Processo concluído com sucesso!\n");
+    return EXIT_SUCCESS;
 }
 
 /** MANIPULAÇÃO DO ARQUIVO */
@@ -392,13 +430,9 @@ Imagem *imagem_carrega(char *caminho) {
     }
     imagem->nome = cria_string(caminho); /* salva o nome do arquivo */
     /* verifica se é um arquivo válido */
-    bool arq_valido;
     char tipo[5];
     fgets(tipo, 5, imagem->arquivo);
-    arq_valido = !(strlen(tipo) != 3 || tipo[0] != 'P' || !isdigit(tipo[1]));
-    if (arq_valido) {
-        imagem->tipo = tipo[1];
-    } else {
+    if (strlen(tipo) != 3 || tipo[0] != 'P' || !isdigit(tipo[1])) {
         printf("Formato de arquivo inválido\n");
         printf("Tipo: %c%c\t(%d)\n\n", tipo[0], tipo[1], strlen(tipo));
         exit(3);
@@ -423,7 +457,7 @@ Imagem *imagem_carrega(char *caminho) {
 
 /* recebe uma imagem e um caminho de saída para salvar */
 void imagem_salva(Imagem *imagem, const char *arq_saida) {
-    printf("Salvando arquivo %s... ", arq_saida);
+    printf("Salvando arquivo %s...\n", arq_saida);
     int i, j;
     imagem->arquivo = fopen(arq_saida, "w");
     if (imagem->arquivo == NULL) {
@@ -431,7 +465,7 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
                "Verifique se você tem as permissões necessárias");
         exit(9);
     }
-    fprintf(imagem->arquivo, "P%c\n", imagem->tipo);
+    fprintf(imagem->arquivo, "P3\n");
     fprintf(imagem->arquivo, "%d %d\n", imagem->larg, imagem->alt);
     fprintf(imagem->arquivo, "%d\n", imagem->prof_cor);
     for (i = 0; i < imagem->alt; i++)
@@ -444,7 +478,6 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
     pixels_apaga(imagem);
     free(imagem->nome);
     free(imagem);
-    printf("salvo\n");
 }
 /*</editor-fold>*/
 
@@ -452,7 +485,6 @@ void imagem_salva(Imagem *imagem, const char *arq_saida) {
 /*<editor-fold desc="filters">*/
 /* recebem um ponteiro para uma imagem e aplicam um filtro sobre ela */
 void filtro_corta(Imagem *imagem, unsigned int alt, unsigned int larg, int corte_i, int corte_j) {
-    printf("Recortando imagem no tamanho %dx%d, iniciando na posição %d,%d...\n", alt, larg, corte_i, corte_j);
     /* copia o espaço a ser recortado para uma nova matriz */
     int recorte_i, recorte_j, imagem_j;
     Pixel **recorte = pixels_aloca(alt, larg);
@@ -471,7 +503,6 @@ void filtro_corta(Imagem *imagem, unsigned int alt, unsigned int larg, int corte
 }
 
 void filtro_negativo(Imagem *imagem) {
-    printf("Aplicando filtro negativo...\n");
     int i, j;
     for (i = 0; i < imagem->alt; i++)
         for (j = 0; j < imagem->larg; j++) {
@@ -482,7 +513,6 @@ void filtro_negativo(Imagem *imagem) {
 }
 
 void filtro_brilho(Imagem *imagem, float brilho) {
-    printf("Aplicando %3.f%% de brilho...\n", brilho);
     float fat = (brilho / 100) * imagem->prof_cor;
     int i, j;
     for (i = 0; i < imagem->alt; i++)
@@ -497,7 +527,6 @@ void filtro_brilho(Imagem *imagem, float brilho) {
 }
 
 void filtro_contraste(Imagem *imagem, float contraste) {
-    printf("Aplicando %3.f%% de contraste...\n", contraste);
     float fat = (259 * (contraste + 255)) / (255 * (259 - contraste));
     int i, j;
     for (i = 0; i < imagem->alt; i++)
@@ -512,7 +541,6 @@ void filtro_contraste(Imagem *imagem, float contraste) {
 }
 
 void filtro_cor(Imagem *imagem, Pixel cor) {
-    printf("Aplicando filtro de cor RGB %d %d %d...\n", cor.r, cor.g, cor.b);
     int i, j;
     for (i = 0; i < imagem->alt; i++)
         for (j = 0; j < imagem->larg; j++) {
@@ -526,7 +554,6 @@ void filtro_cor(Imagem *imagem, Pixel cor) {
 }
 
 void filtro_espelhar(Imagem *imagem) {
-    printf("Espelhando imagem...\n");
     Pixel **pont = pixels_aloca(imagem->alt, imagem->larg);
     int i, j;
     for (i = 0; i < imagem->alt; i++) {
@@ -541,7 +568,6 @@ void filtro_espelhar(Imagem *imagem) {
 }
 
 void filtro_virar(Imagem *imagem) {
-    printf("Virando imagem...\n");
     Pixel **pont = pixels_aloca(imagem->alt, imagem->larg);
     int i, j;
     int k = 0;
@@ -555,7 +581,6 @@ void filtro_virar(Imagem *imagem) {
 }
 
 void filtro_girar(Imagem *imagem, int graus) {
-    printf("Girando imagem %d graus...\n", graus);
     Pixel **pont = NULL;
     int i, j;
     if (graus == 180) {
@@ -584,7 +609,6 @@ void filtro_girar(Imagem *imagem, int graus) {
 }
 
 void filtro_distorcer(Imagem *imagem, int apotema) {
-    printf("Aplicando distorção sobre uma área de %d pixels quadrados...", apotema * 2);
     Pixel aux;
     int i, j;
     for (i = 0; i < imagem->alt; i++)
@@ -607,25 +631,64 @@ void filtro_distorcer(Imagem *imagem, int apotema) {
         }
 }
 
-void convulacao(Imagem *imagem, int kernel[3][3], int divisor) {
-    printf("Aplicando convulação...");
-    int i, j, k, l;
+void convolucao(Imagem *imagem, int kernel[3][3], int divisor) {
+    unsigned int i, j;
     for (i = 0; i < imagem->alt; i++)
         for (j = 0; j < imagem->larg; j++) {
-            int soma_r = 0;
-            int soma_g = 0;
-            int soma_b = 0;
-            for (k = 0; k < 3; k++)
-                for (l = 0; l < 3; l++) {
-                    if (i == 0 || j == 0 || i == imagem->alt - 1 || j == imagem->larg - 1)
-                        continue;
-                    int fator_r = imagem->pixels[i][j].r * kernel[k][l];
-                    int fator_g = imagem->pixels[i][j].g * kernel[k][l];
-                    int fator_b = imagem->pixels[i][j].b * kernel[k][l];
-                    soma_r += fator_r;
-                    soma_g += fator_g;
-                    soma_b += fator_b;
-                }
+            int soma_r = (
+                    /* linha 1 */
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].r * kernel[0][0]) +
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j].r * kernel[0][1]) +
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].r *
+                     kernel[0][2]) +
+                    /* linha 2 */
+                    (imagem->pixels[i][j == 0 ? 0 : j - 1].r * kernel[1][0]) +
+                    (imagem->pixels[i][j].r * kernel[1][1]) +
+                    (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].r *
+                     kernel[1][2]) +
+                    /* linha 3 */
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j - 1].r *
+                     kernel[2][0]) +
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].r * kernel[2][1]) +
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1 ?
+                                                                                    imagem->larg - 1 : j + 1].r *
+                     kernel[2][2]));
+            int soma_g = (
+                    /* linha 1 */
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].g * kernel[0][0]) +
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j].g * kernel[0][1]) +
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].g *
+                     kernel[0][2]) +
+                    /* linha 2 */
+                    (imagem->pixels[i][j == 0 ? 0 : j - 1].g * kernel[1][0]) +
+                    (imagem->pixels[i][j].g * kernel[1][1]) +
+                    (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].g *
+                     kernel[1][2]) +
+                    /* linha 3 */
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j - 1].g *
+                     kernel[2][0]) +
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].g * kernel[2][1]) +
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1 ?
+                                                                                    imagem->larg - 1 : j + 1].g *
+                     kernel[2][2]));;
+            int soma_b = (
+                    /* linha 1 */
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].b * kernel[0][0]) +
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j].b * kernel[0][1]) +
+                    (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].b *
+                     kernel[0][2]) +
+                    /* linha 2 */
+                    (imagem->pixels[i][j == 0 ? 0 : j - 1].b * kernel[1][0]) +
+                    (imagem->pixels[i][j].b * kernel[1][1]) +
+                    (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].b *
+                     kernel[1][2]) +
+                    /* linha 3 */
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j - 1].b *
+                     kernel[2][0]) +
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].b * kernel[2][1]) +
+                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1 ?
+                                                                                    imagem->larg - 1 : j + 1].b *
+                     kernel[2][2]));;
             imagem->pixels[i][j].r = (imagem->pixels[i][j].r + soma_r) / divisor;
             imagem->pixels[i][j].g = (imagem->pixels[i][j].g + soma_g) / divisor;
             imagem->pixels[i][j].b = (imagem->pixels[i][j].b + soma_b) / divisor;
@@ -704,8 +767,8 @@ void erro_param() {
            "\t-e\t\tEspelhar  (inverter horizontalmente)\n"
            "\t-g GRAUS\tGirar     (90, 180 ou 270 graus)\n"
            "\t-d APÓTEMA\tDistorcer (apótema de distorção, em pixels)\n");
-    printf("Convulação:\n"
-           "\tÉ possível aplicar um núcleo de convulação de 3x3\n"
+    printf("convolução: -k\n"
+           "\tÉ possível aplicar um núcleo de convolução de 3x3\n"
            "\tApós o parâmetro -k, informe os valores de cada célula\n"
            "\tUse x[VALOR] para informar um divisor (opcional)\n");
     exit(1);
@@ -713,7 +776,7 @@ void erro_param() {
 
 /* copia uma string para um novo endereço de memória dinamicamente alocado */
 char *cria_string(char *palavra) {
-    char *string = malloc(sizeof(char) * strlen(palavra));
+    char *string = malloc(sizeof(char) * (strlen(palavra) + 1));
     if (string == NULL) {
         printf("Memória insuficiente!\n\tLibere mais memória e tente novamente.\n");
         exit(6);
