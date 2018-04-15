@@ -8,7 +8,7 @@ Você deverá programar um sistema capaz de manipular uma imagem em formato PPM 
 
 Seu sistema deverá ser capaz de aplicar ao menos 8 filtros diferentes à imagem: ao menos 4 de cor (ex.: negativo, ajuste de canal de cor, brilho, contraste, etc) e ao menos 4 posicionais (ex.: flip, mirror, rotação, distorção, etc.). Além disso, também deverá permitir o uso da técnica de matriz de convolução, para um núcleo de, no mínimo, 3x3. O usuário deverá poder preencher o núcleo de convolução livremente. Tanto para os filtros quanto para a convolução, o usuário deverá ser capaz de, opcionalmente, indicar um recorte/seleção da imagem para sua aplicação.
 
-Você deverá enviar o código C e um arquivo leiame.txt, que deverá conter uma descrição de suas escolhas de filtros, como cada um funciona internamente e como utilizá-los. Seu código será avaliado quanto à funcionalidade, correção, legibilidade e documentação.
+Você deverá enviar o [código C](editor_ppm.c) e um arquivo [leiame.txt](leiame.txt), que deverá conter uma descrição de suas escolhas de filtros, como cada um funciona internamente e como utilizá-los. Seu código será avaliado quanto à funcionalidade, correção, legibilidade e documentação.
 
 OBS.: Seu código será testado em máquina com linux, utilizando compilador C padrão ANSI (gcc -ansi)
 OBS. 2: Seu código será verificado contra plágio. Em caso positivo, o mesmo será desqualificado e a nota zerada.
