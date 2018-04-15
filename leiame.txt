@@ -1,5 +1,5 @@
 LABORATÓRIO DE PROGRAMAÇÃO II - 2018/1
-Publicado em https://github.com/augustocb23/trabLab2-EditorPPM
+Publicado em https://github.com/augustocb23/lab2-EditorPPM
 
 Tarefa 1 - Vetores/Matrizes
 
