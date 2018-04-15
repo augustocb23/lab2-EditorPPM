@@ -591,13 +591,13 @@ void filtro_girar(Imagem *imagem, int graus) {
                 pont[imagem->alt - i - 1][imagem->larg - j - 1] = imagem->pixels[i][j];
     } else {
         pont = pixels_aloca(imagem->larg, imagem->alt);
-        for (i = 0; i < imagem->larg; i++)
-            for (j = 0; j < imagem->alt; j++)
-                if (graus == 90)
-                    /* girar 90 graus */
+        if (graus == 90) /* girar 90 graus */
+            for (i = 0; i < imagem->larg; i++)
+                for (j = 0; j < imagem->alt; j++)
                     pont[i][imagem->alt - j - 1] = imagem->pixels[j][i];
-                else
-                    /*girar 270 graus */
+        else /*girar 270 graus */
+            for (i = 0; i < imagem->larg; i++)
+                for (j = 0; j < imagem->alt; j++)
                     pont[imagem->larg - i - 1][j] = imagem->pixels[j][i];
         /* redefine as dimensões da imagem */
         unsigned int aux = imagem->larg;
@@ -632,68 +632,88 @@ void filtro_distorcer(Imagem *imagem, int apotema) {
 }
 
 void convolucao(Imagem *imagem, int kernel[3][3], int divisor) {
+    /* aloca uma nova matriz */
+    Pixel **pont = pixels_aloca(imagem->alt, imagem->larg);
     unsigned int i, j;
     for (i = 0; i < imagem->alt; i++)
         for (j = 0; j < imagem->larg; j++) {
-            int soma_r = (
-                    /* linha 1 */
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].r * kernel[0][0]) +
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j].r * kernel[0][1]) +
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].r *
-                     kernel[0][2]) +
-                    /* linha 2 */
-                    (imagem->pixels[i][j == 0 ? 0 : j - 1].r * kernel[1][0]) +
-                    (imagem->pixels[i][j].r * kernel[1][1]) +
-                    (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].r *
-                     kernel[1][2]) +
-                    /* linha 3 */
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j - 1].r *
-                     kernel[2][0]) +
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].r * kernel[2][1]) +
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1 ?
-                                                                                    imagem->larg - 1 : j + 1].r *
-                     kernel[2][2]));
-            int soma_g = (
-                    /* linha 1 */
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].g * kernel[0][0]) +
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j].g * kernel[0][1]) +
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].g *
-                     kernel[0][2]) +
-                    /* linha 2 */
-                    (imagem->pixels[i][j == 0 ? 0 : j - 1].g * kernel[1][0]) +
-                    (imagem->pixels[i][j].g * kernel[1][1]) +
-                    (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].g *
-                     kernel[1][2]) +
-                    /* linha 3 */
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j - 1].g *
-                     kernel[2][0]) +
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].g * kernel[2][1]) +
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1 ?
-                                                                                    imagem->larg - 1 : j + 1].g *
-                     kernel[2][2]));;
-            int soma_b = (
-                    /* linha 1 */
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].b * kernel[0][0]) +
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j].b * kernel[0][1]) +
-                    (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].b *
-                     kernel[0][2]) +
-                    /* linha 2 */
-                    (imagem->pixels[i][j == 0 ? 0 : j - 1].b * kernel[1][0]) +
-                    (imagem->pixels[i][j].b * kernel[1][1]) +
-                    (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].b *
-                     kernel[1][2]) +
-                    /* linha 3 */
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j - 1].b *
-                     kernel[2][0]) +
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].b * kernel[2][1]) +
-                    (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1 ?
-                                                                                    imagem->larg - 1 : j + 1].b *
-                     kernel[2][2]));;
-            imagem->pixels[i][j].r = (imagem->pixels[i][j].r + soma_r) / divisor;
-            imagem->pixels[i][j].g = (imagem->pixels[i][j].g + soma_g) / divisor;
-            imagem->pixels[i][j].b = (imagem->pixels[i][j].b + soma_b) / divisor;
-            valida_cores(imagem, i, j);
+            pont[i][j].r = (
+                                   /* linha 1 */
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].r * kernel[2][2]) +
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j].r * kernel[2][1]) +
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j +
+                                                                                                                  1].r *
+                                    kernel[2][0]) +
+                                   /* linha 2 */
+                                   (imagem->pixels[i][j == 0 ? 0 : j - 1].r * kernel[1][2]) +
+                                   (imagem->pixels[i][j].r * kernel[1][1]) +
+                                   (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].r *
+                                    kernel[1][0]) +
+                                   /* linha 3 */
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j -
+                                                                                                                1].r *
+                                    kernel[0][2]) +
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].r *
+                                    kernel[0][1]) +
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1
+                                                                                                   ?
+                                                                                                   imagem->larg - 1 :
+                                                                                                   j + 1].r *
+                                    kernel[0][0])) / divisor;
+            pont[i][j].g = (
+                                   /* linha 1 */
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].g * kernel[2][2]) +
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j].g * kernel[2][1]) +
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j +
+                                                                                                                  1].g *
+                                    kernel[2][0]) +
+                                   /* linha 2 */
+                                   (imagem->pixels[i][j == 0 ? 0 : j - 1].g * kernel[1][2]) +
+                                   (imagem->pixels[i][j].g * kernel[1][1]) +
+                                   (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].g *
+                                    kernel[1][0]) +
+                                   /* linha 3 */
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j -
+                                                                                                                1].g *
+                                    kernel[0][2]) +
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].g *
+                                    kernel[0][1]) +
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1
+                                                                                                   ?
+                                                                                                   imagem->larg - 1 :
+                                                                                                   j + 1].g *
+                                    kernel[0][0])) / divisor;
+            pont[i][j].b = (
+                                   /* linha 1 */
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j == 0 ? 0 : j - 1].b * kernel[2][2]) +
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j].b * kernel[2][1]) +
+                                   (imagem->pixels[i == 0 ? 0 : i - 1][j == imagem->larg - 1 ? imagem->larg - 1 : j +
+                                                                                                                  1].b *
+                                    kernel[2][0]) +
+                                   /* linha 2 */
+                                   (imagem->pixels[i][j == 0 ? 0 : j - 1].b * kernel[1][2]) +
+                                   (imagem->pixels[i][j].b * kernel[1][1]) +
+                                   (imagem->pixels[i][j == imagem->larg - 1 ? imagem->larg - 1 : j + 1].b *
+                                    kernel[1][0]) +
+                                   /* linha 3 */
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == 0 ? 0 : j -
+                                                                                                                1].b *
+                                    kernel[0][2]) +
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j].b *
+                                    kernel[0][1]) +
+                                   (imagem->pixels[i == imagem->alt - 1 ? imagem->alt - 1 : i + 1][j == imagem->larg - 1
+                                                                                                   ?
+                                                                                                   imagem->larg - 1 :
+                                                                                                   j + 1].b *
+                                    kernel[0][0])) / divisor;
         }
+    /* apaga a matriz original e substitui o ponteiro */
+    pixels_apaga(imagem);
+    imagem->pixels = pont;
+    /* valida os pixels na nova matriz */
+    for (i = 0; i < imagem->alt; i++)
+        for (j = 0; j < imagem->larg; j++)
+            valida_cores(imagem, i, j);
 }
 /*</editor-fold>*/
 
@@ -767,7 +787,7 @@ void erro_param() {
            "\t-e\t\tEspelhar  (inverter horizontalmente)\n"
            "\t-g GRAUS\tGirar     (90, 180 ou 270 graus)\n"
            "\t-d APÓTEMA\tDistorcer (apótema de distorção, em pixels)\n");
-    printf("convolução: -k\n"
+    printf("Matriz de convolução: -k\n"
            "\tÉ possível aplicar um núcleo de convolução de 3x3\n"
            "\tApós o parâmetro -k, informe os valores de cada célula\n"
            "\tUse x[VALOR] para informar um divisor (opcional)\n");
