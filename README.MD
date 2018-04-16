@@ -10,15 +10,15 @@ Há um total de 10 filtros que podem ser aplicados na imagem:
 
 - [Recorte](#recorte--u-altura-largura-deslocamento_y-deslocamento_x)
 - Edição
-  - Brilho
-  - Contraste
-  - Ajuste de cor
-  - Negativo
+  - [Brilho](#brilho--b-porcentagem)
+  - [Contraste](#contraste--t-porcentagem)
+  - [Canal de cor](#canal-de-cor--c-cores)
+  - [Negativo](#negativo--n)
 - Posição
-  - Espelhar
-  - Virar
-  - Girar
-  - Distorcer
+  - [Espelhar](#espelhar--e)
+  - [Virar](#virar--v)
+  - [Girar](#girar--g-graus)
+  - [Distorcer](#distorcer--d-ap%C3%93tema)
 - [Matriz de Convolução (3x3)](#matriz-de-convolução--k-valores-xdivisor)
 
 ## Compilação

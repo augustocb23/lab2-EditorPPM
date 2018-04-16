@@ -13,12 +13,10 @@ conjunto de três inteiros, cada um representando um valor na escala RGB.
 Há um total de 10 filtros que podem ser aplicados na imagem:
 
 -   Recorte
--   Edição
 -   Brilho
 -   Contraste
 -   Ajuste de cor
 -   Negativo
--   Posição
 -   Espelhar
 -   Virar
 -   Girar
@@ -186,12 +184,12 @@ parâmetros, é verificado se o usuário informou este dado.
 Dentro da função há dois fluxos possíveis, de acordo com o valor da
 rotação:
 
--   180 graus
+  180 graus
 
 1.  Aloca uma matriz de mesmo formato e dimensões da imagem original
 2.  Executa um loop para copiar os pixels na ordem correta
 
--   90 ou 270 graus
+  90 ou 270 graus
 
 1.  Aloca uma matriz com as dimensões opostas da imagem original
 2.  Testa qual o valor entre os dois possíveis e executa um loop onde
