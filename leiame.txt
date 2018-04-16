@@ -69,7 +69,7 @@ editor_ppm imagem1.ppm -e -o imagem2.ppm
 
 Leitura da imagem
 
-A imagem é definida por um _struct_ que contém:
+A imagem é definida por um struct que contém:
 
 -   ponteiro para o arquivo
 -   nome do arquivo de entrada
@@ -79,7 +79,7 @@ A imagem é definida por um _struct_ que contém:
 -   ponteiro para a matriz de pixels
 
 Após a leitura do cabeçalho, a matriz de pixels é alocada dinamicamente
-(a partir das dimensões lidas). Cada pixel é um _struct_ com os valores
+(a partir das dimensões lidas). Cada pixel é um struct com os valores
 na escala RGB.
 
 Se a leitura for concluída sem erros, uma mensagem de confirmação é
@@ -141,7 +141,7 @@ Canal de Cor (-c CORES)
 Para aplicar este filtro, o usuário deve informar pelo menos uma das 3
 faixas de cor RGB. Para isto, após o parâmetro -c, deve-se informar a
 cor (r, g, ou b) seguida do valor. A ordem que as cores são lidas não
-importa, já que os valores são obtidos a partir de um _switch_ na função
+importa, já que os valores são obtidos a partir de um switch na função
 principal.
 
 Por exemplo, para aumentar a cor azul em 25 e diminuir a cor vermelha em
@@ -196,10 +196,10 @@ rotação:
 1.  Aloca uma matriz com as dimensões opostas da imagem original
 2.  Testa qual o valor entre os dois possíveis e executa um loop onde
     faz a cópia dos valores na ordem correta
-3.  Inverte as definições de altura e largura no _struct_
+3.  Inverte as definições de altura e largura no struct
 
 Após executar o fluxo correto, a matriz original é destruída
-(desalocada) e o ponteiro no _struct_ é atualizado com a nova matriz.
+(desalocada) e o ponteiro no struct é atualizado com a nova matriz.
 
 Distorcer (-d APÓTEMA)
 
@@ -246,11 +246,11 @@ Cada pixel é multiplicado pelo kernel, seguindo a fórmula do artigo
 da Wikipédia em inglês.
 https://en.wikipedia.org/wiki/Kernel_(image_processing)#Convolution
 
-Após atualizar o ponteiro no _struct_ e apagar a matriz antiga, um
+Após atualizar o ponteiro no struct e apagar a matriz antiga, um
 último loop é feito para validar os pixels (testar se todos os valores
 estão entre 0 e a profundidade de cores)
 
-## Códigos de Erro
+Códigos de Erro
 
 Em caso de erro na execução do programa, os seguintes códigos de erro
 podem ser retornados:

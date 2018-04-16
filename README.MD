@@ -8,7 +8,7 @@ O trabalho consiste na implementação de um editor para imagens no formato PPM,
 
 Há um total de 10 filtros que podem ser aplicados na imagem:
 
-- Recorte
+- [Recorte](#recorte--u-altura-largura-deslocamento_y-deslocamento_x)
 - Edição
   - Brilho
   - Contraste
@@ -19,7 +19,7 @@ Há um total de 10 filtros que podem ser aplicados na imagem:
   - Virar
   - Girar
   - Distorcer
-- Núcleo de Convolução (3x3)
+- [Matriz de Convolução (3x3)](#matriz-de-convolução--k-valores-xdivisor)
 
 ## Compilação
 
